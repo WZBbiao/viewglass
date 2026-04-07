@@ -13,8 +13,17 @@ let package = Package(
     ],
     targets: [
         .target(
-            name: "LookinCore",
+            name: "LookinSharedBridge",
             dependencies: [],
+            path: "Sources/LookinSharedBridge",
+            publicHeadersPath: "include",
+            cSettings: [
+                .headerSearchPath("include"),
+            ]
+        ),
+        .target(
+            name: "LookinCore",
+            dependencies: ["LookinSharedBridge"],
             path: "Sources/LookinCore"
         ),
         .executableTarget(
