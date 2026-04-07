@@ -43,9 +43,10 @@ public final class LKTCPConnection: @unchecked Sendable {
                 }
             }
 
-            // Timeout
+            // Timeout — only cancel if we haven't connected yet
             self.queue.asyncAfter(deadline: .now() + timeout) { [weak self] in
                 guard let self else { return }
+                guard !resumed else { return } // Already connected, don't cancel
                 resumeOnce(.failure(LookinCoreError.connectionTimeout))
                 self.connection.cancel()
             }
