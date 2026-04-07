@@ -173,8 +173,10 @@ public final class LKQueryEngine: Sendable {
                 parts.append(current.trimmingCharacters(in: .whitespaces))
                 current = ""
             } else {
-                parenDepth += token.filter({ $0 == "(" }).count
-                parenDepth -= token.filter({ $0 == ")" }).count
+                if !inQuote {
+                    parenDepth += token.filter({ $0 == "(" }).count
+                    parenDepth -= token.filter({ $0 == ")" }).count
+                }
                 current += (current.isEmpty ? "" : " ") + token
             }
             i += 1
