@@ -2,7 +2,7 @@
 
 ## Current Milestone
 
-- Phase 4: All commands implemented and tested. Ready for live protocol integration.
+- Phase 4 complete: All commands implemented, tested, and committed.
 
 ## Completed Changes
 
@@ -40,15 +40,20 @@
 - Non-zero exit codes on failure
 
 ### Tests (Phase 3)
-- 96 tests total, all passing
-- LookinCoreTests: LKNodeTests, LKAppDescriptorTests, LKRectTests, LKHierarchySnapshotTests, LKErrorTests, MockSessionServiceTests, LKQueryEngineTests, DiagnosticsServiceTests
+- 98 tests total, all passing
+- LookinCoreTests: LKNodeTests, LKAppDescriptorTests, LKRectTests, LKHierarchySnapshotTests, LKErrorTests, MockSessionServiceTests, LKQueryEngineTests (20 tests), DiagnosticsServiceTests
 - LookinCLITests: CLICommandTests, JSONOutputTests, TextFormatterTests
+
+### Bug Fixes (from Codex Review)
+- Fixed query parser splitting on AND/OR inside quoted accessibility labels
+- Fixed parentheses inside quoted labels affecting paren depth counter
 
 ## Open Risks
 
 - Live protocol integration requires Peertalk/NSKeyedArchiver compatibility (ObjC bridging)
 - No live device tests yet — all tests use fixture/mock data
 - LookinShared pod types not yet bridged to Swift
+- Query parser uses token-level splitting; edge cases with mixed paren+quote tokens need character-level parsing
 
 ## Commands And Tests Run
 
@@ -56,17 +61,22 @@
 swift build                          # Build complete (9.11s)
 swift run lookin-cli --help          # All 12 subcommands listed
 swift run lookin-cli apps list --json # JSON output verified
-swift test                           # 96 tests, 0 failures (0.133s)
+swift run lookin-cli apps list       # Human-readable output verified
+swift run lookin-cli hierarchy --help # Subcommand help verified
+swift run lookin-cli diagnose --help  # Diagnostic subcommands verified
+swift test                           # 98 tests, 0 failures (0.028s)
 ```
 
 ## Latest Checkpoint Commit
 
-- Pending first checkpoint
+- `5aae397` — lookin-cli: ignore parentheses inside quoted labels in query parser
+- `f1a3204` — lookin-cli: fix query parser splitting on AND/OR inside quoted labels
+- `866b82f` — lookin-cli: scaffold core, CLI, and test targets with 12 command families
 
 ## Next Step
 
-- Create checkpoint commit
 - Implement live protocol layer (Peertalk TCP connection, NSKeyedArchiver serialization)
 - Bridge to LookinShared pod types for full protocol compatibility
-- Add argument parsing tests using ArgumentParser test utilities
 - Add fixture-backed integration tests with saved .lookin files
+- Consider session persistence via file-based cache for cross-invocation state
+- Prepare skills-oriented workflow wrappers (Phase 4 of blueprint)
