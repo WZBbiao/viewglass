@@ -19,6 +19,13 @@ public final class LiveSessionService: SessionServiceProtocol, @unchecked Sendab
             }
         }
 
+        // Scan device ports
+        for port in LKPortConstants.devicePorts {
+            if let app = await tryDiscoverApp(host: "127.0.0.1", port: port, deviceType: .device) {
+                apps.append(app)
+            }
+        }
+
         if apps.isEmpty {
             throw LookinCoreError.noAppsFound
         }

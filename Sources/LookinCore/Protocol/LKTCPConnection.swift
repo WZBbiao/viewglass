@@ -33,16 +33,25 @@ public final class LKTCPConnection: @unchecked Sendable {
     public func connect() async throws {
         state = .connecting
         return try await withCheckedThrowingContinuation { continuation in
+            var resumed = false
             connection.stateUpdateHandler = { [weak self] newState in
-                guard let self else { return }
+                guard let self, !resumed else { return }
                 switch newState {
                 case .ready:
+                    resumed = true
                     self.state = .connected
+                    // Clear handler to prevent double-resume on later disconnect
+                    self.connection.stateUpdateHandler = { [weak self] state in
+                        if case .cancelled = state { self?.state = .disconnected }
+                        if case .failed = state { self?.state = .disconnected }
+                    }
                     continuation.resume()
                 case .failed(let error):
+                    resumed = true
                     self.state = .failed(error)
                     continuation.resume(throwing: LookinCoreError.connectionFailed(host: self.host, port: self.port))
                 case .cancelled:
+                    resumed = true
                     self.state = .disconnected
                     continuation.resume(throwing: LookinCoreError.connectionFailed(host: self.host, port: self.port))
                 default:

@@ -77,6 +77,12 @@ public enum LKBridgeConverter {
 
         let attrGroups = item.attributesGroupList?.map { convertAttributesGroup($0) }
 
+        // Extract tag, accessibility, and interaction info from attribute groups
+        let tag = extractIntAttribute("tag", from: item.attributesGroupList)
+        let accessibilityLabel = extractStringAttribute("accessibilityLabel", from: item.attributesGroupList)
+        let accessibilityIdentifier = extractStringAttribute("accessibilityIdentifier", from: item.attributesGroupList)
+        let isUserInteractionEnabled = extractBoolAttribute("userInteractionEnabled", from: item.attributesGroupList) ?? true
+
         return LKNode(
             oid: UInt(oid),
             className: className,
@@ -85,7 +91,10 @@ public enum LKBridgeConverter {
             bounds: bounds,
             isHidden: item.isHidden,
             alpha: Double(item.alpha),
-            isUserInteractionEnabled: true,
+            isUserInteractionEnabled: isUserInteractionEnabled,
+            tag: tag ?? 0,
+            accessibilityLabel: accessibilityLabel,
+            accessibilityIdentifier: accessibilityIdentifier,
             customDisplayTitle: item.customDisplayTitle,
             depth: depth,
             parentOid: parentOid,
@@ -124,5 +133,49 @@ public enum LKBridgeConverter {
             value: value,
             isReadonly: attr.customSetterID == nil && attr.attrType == .none
         )
+    }
+
+    // MARK: - Attribute extraction helpers
+
+    private static func extractStringAttribute(_ key: String, from groups: [LookinAttributesGroup]?) -> String? {
+        guard let groups else { return nil }
+        for group in groups {
+            for section in group.attrSections ?? [] {
+                for attr in section.attributes ?? [] {
+                    if attr.identifier == key || attr.displayTitle == key {
+                        return attr.value as? String
+                    }
+                }
+            }
+        }
+        return nil
+    }
+
+    private static func extractIntAttribute(_ key: String, from groups: [LookinAttributesGroup]?) -> Int? {
+        guard let groups else { return nil }
+        for group in groups {
+            for section in group.attrSections ?? [] {
+                for attr in section.attributes ?? [] {
+                    if attr.identifier == key || attr.displayTitle == key {
+                        return (attr.value as? NSNumber)?.intValue
+                    }
+                }
+            }
+        }
+        return nil
+    }
+
+    private static func extractBoolAttribute(_ key: String, from groups: [LookinAttributesGroup]?) -> Bool? {
+        guard let groups else { return nil }
+        for group in groups {
+            for section in group.attrSections ?? [] {
+                for attr in section.attributes ?? [] {
+                    if attr.identifier == key || attr.displayTitle == key {
+                        return (attr.value as? NSNumber)?.boolValue
+                    }
+                }
+            }
+        }
+        return nil
     }
 }
