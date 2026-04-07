@@ -52,31 +52,38 @@
 
 - Live protocol integration requires Peertalk/NSKeyedArchiver compatibility (ObjC bridging)
 - No live device tests yet — all tests use fixture/mock data
-- LookinShared pod types not yet bridged to Swift
+- Attribute key mapping (e.g. `LookinAttr_ViewLayer_Tag_Tag` vs `"tag"`) needs refinement for live connections
 - Query parser uses token-level splitting; edge cases with mixed paren+quote tokens need character-level parsing
+
+### Protocol Layer (Phase 5)
+
+- LookinSharedBridge ObjC module: 15 NSSecureCoding-compatible classes
+- TCP protocol: LKFrameCodec, LKTCPConnection (NWConnection), LKProtocolClient
+- Live services: LiveSessionService, LiveHierarchyService, LKBridgeConverter
+- Fixture integration tests: 8 tests with sample_hierarchy.json
 
 ## Commands And Tests Run
 
-```
-swift build                          # Build complete (9.11s)
+```bash
+swift build                          # Build complete
 swift run lookin-cli --help          # All 12 subcommands listed
 swift run lookin-cli apps list --json # JSON output verified
 swift run lookin-cli apps list       # Human-readable output verified
-swift run lookin-cli hierarchy --help # Subcommand help verified
-swift run lookin-cli diagnose --help  # Diagnostic subcommands verified
-swift test                           # 98 tests, 0 failures (0.028s)
+swift test                           # 106 tests, 0 failures (0.023s)
 ```
 
 ## Latest Checkpoint Commit
 
-- `5aae397` — lookin-cli: ignore parentheses inside quoted labels in query parser
-- `f1a3204` — lookin-cli: fix query parser splitting on AND/OR inside quoted labels
-- `866b82f` — lookin-cli: scaffold core, CLI, and test targets with 12 command families
+- `3473f41` — fix connection double-resume, add device port scanning, preserve node attributes
+- `65042ea` — add Peertalk TCP protocol layer, ObjC bridge, and fixture tests
+- `503903f` — update progress ledger with final status
+- `5aae397` — ignore parentheses inside quoted labels in query parser
+- `f1a3204` — fix query parser splitting on AND/OR inside quoted labels
+- `866b82f` — scaffold core, CLI, and test targets with 12 command families
 
 ## Next Step
 
-- Implement live protocol layer (Peertalk TCP connection, NSKeyedArchiver serialization)
-- Bridge to LookinShared pod types for full protocol compatibility
-- Add fixture-backed integration tests with saved .lookin files
+- Map real LookinAttr identifier constants for live attribute extraction
 - Consider session persistence via file-based cache for cross-invocation state
 - Prepare skills-oriented workflow wrappers (Phase 4 of blueprint)
+- Add .lookin file import support for offline analysis
