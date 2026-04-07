@@ -148,9 +148,11 @@ public final class LKQueryEngine: Sendable {
         throw LookinCoreError.querySyntaxError(expression: expr, reason: "Unrecognized expression")
     }
 
-    /// Splits an expression by a logical operator at the top level (not inside parentheses).
+    /// Splits an expression by a logical operator at the top level
+    /// (not inside parentheses or quoted strings).
     private func splitTopLevel(_ expr: String, separator: String) -> [String]? {
-        var depth = 0
+        var parenDepth = 0
+        var inQuote = false
         var parts: [String] = []
         var current = ""
         let tokens = expr.components(separatedBy: " ")
@@ -158,12 +160,21 @@ public final class LKQueryEngine: Sendable {
 
         while i < tokens.count {
             let token = tokens[i]
-            if token.uppercased() == separator && depth == 0 && !current.trimmingCharacters(in: .whitespaces).isEmpty {
+
+            // Track quote state — toggle on each unescaped "
+            let quoteCount = token.filter { $0 == "\"" }.count
+            if quoteCount % 2 != 0 {
+                inQuote.toggle()
+            }
+
+            if token.uppercased() == separator && parenDepth == 0 && !inQuote
+                && !current.trimmingCharacters(in: .whitespaces).isEmpty
+            {
                 parts.append(current.trimmingCharacters(in: .whitespaces))
                 current = ""
             } else {
-                depth += token.filter({ $0 == "(" }).count
-                depth -= token.filter({ $0 == ")" }).count
+                parenDepth += token.filter({ $0 == "(" }).count
+                parenDepth -= token.filter({ $0 == ")" }).count
                 current += (current.isEmpty ? "" : " ") + token
             }
             i += 1

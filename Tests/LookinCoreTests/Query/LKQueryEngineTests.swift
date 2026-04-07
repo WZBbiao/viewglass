@@ -104,4 +104,24 @@ final class LKQueryEngineTests: XCTestCase {
         // visible UIButton (1) + visible UILabels (2)
         XCTAssertEqual(results.count, 3)
     }
+
+    func testQueryQuotedLabelWithAND() throws {
+        // "Terms AND Conditions" should NOT be split on AND
+        // This should match accessibility label literally, not split into parts
+        let results = try engine.execute(
+            expression: "@\"Terms AND Conditions\"",
+            on: snapshot
+        )
+        // No nodes have this label, so 0 results — but it shouldn't crash
+        XCTAssertEqual(results.count, 0)
+    }
+
+    func testQueryQuotedLabelWithOR() throws {
+        // Quoted string with OR inside should not be split
+        let results = try engine.execute(
+            expression: "@\"Accept OR Decline\"",
+            on: snapshot
+        )
+        XCTAssertEqual(results.count, 0) // No match, but no crash
+    }
 }
