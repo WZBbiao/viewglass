@@ -36,17 +36,29 @@
         _isHidden = [coder decodeBoolForKey:@"isHidden"];
         _alpha = [coder decodeFloatForKey:@"alpha"];
 
-        NSValue *frameVal = [coder decodeObjectOfClass:[NSValue class] forKey:@"frame"];
-        if (frameVal) [frameVal getValue:&_frame];
+        // frame/bounds may come as NSValue (same-platform) or NSString (cross-platform)
+        {
+            NSSet *rectClasses = [NSSet setWithArray:@[[NSValue class], [NSString class]]];
+            id frameObj = [coder decodeObjectOfClasses:rectClasses forKey:@"frame"];
+            if ([frameObj isKindOfClass:[NSValue class]]) {
+                [frameObj getValue:&_frame];
+            } else if ([frameObj isKindOfClass:[NSString class]]) {
+                _frame = NSRectToCGRect(NSRectFromString(frameObj));
+            }
 
-        NSValue *boundsVal = [coder decodeObjectOfClass:[NSValue class] forKey:@"bounds"];
-        if (boundsVal) [boundsVal getValue:&_bounds];
+            id boundsObj = [coder decodeObjectOfClasses:rectClasses forKey:@"bounds"];
+            if ([boundsObj isKindOfClass:[NSValue class]]) {
+                [boundsObj getValue:&_bounds];
+            } else if ([boundsObj isKindOfClass:[NSString class]]) {
+                _bounds = NSRectToCGRect(NSRectFromString(boundsObj));
+            }
+        }
 
-        // Screenshots come as NSData on macOS side
-        id soloObj = [coder decodeObjectOfClasses:[NSSet setWithArray:@[[NSData class]]] forKey:@"soloScreenshot"];
+        // Screenshots may come as NSData or platform-specific image objects
+        id soloObj = [coder decodeObjectOfClasses:[NSSet setWithArray:@[[NSData class], [NSObject class]]] forKey:@"soloScreenshot"];
         if ([soloObj isKindOfClass:[NSData class]]) _soloScreenshotData = soloObj;
 
-        id groupObj = [coder decodeObjectOfClasses:[NSSet setWithArray:@[[NSData class]]] forKey:@"groupScreenshot"];
+        id groupObj = [coder decodeObjectOfClasses:[NSSet setWithArray:@[[NSData class], [NSObject class]]] forKey:@"groupScreenshot"];
         if ([groupObj isKindOfClass:[NSData class]]) _groupScreenshotData = groupObj;
 
         _viewObject = [coder decodeObjectOfClass:[LookinObject class] forKey:@"viewObject"];

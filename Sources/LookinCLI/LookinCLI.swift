@@ -20,6 +20,7 @@ struct LookinCLI: AsyncParsableCommand {
             SelectCommand.self,
             ExportCommand.self,
             DiagnoseCommand.self,
+            ScanCommand.self,
         ]
     )
 }

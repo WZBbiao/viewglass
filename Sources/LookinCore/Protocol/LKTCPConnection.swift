@@ -5,7 +5,7 @@ import Network
 public final class LKTCPConnection: @unchecked Sendable {
     private let connection: NWConnection
     private let queue = DispatchQueue(label: "com.lookin.tcp", qos: .userInitiated)
-    private var buffer = Data()
+    private var recvBuffer = Data()
 
     public let host: String
     public let port: Int
@@ -30,35 +30,47 @@ public final class LKTCPConnection: @unchecked Sendable {
         )
     }
 
-    public func connect() async throws {
+    public func connect(timeout: TimeInterval = 0.5) async throws {
         state = .connecting
-        return try await withCheckedThrowingContinuation { continuation in
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
             var resumed = false
-            connection.stateUpdateHandler = { [weak self] newState in
-                guard let self, !resumed else { return }
+            let resumeOnce: (Result<Void, Error>) -> Void = { result in
+                guard !resumed else { return }
+                resumed = true
+                switch result {
+                case .success: continuation.resume()
+                case .failure(let e): continuation.resume(throwing: e)
+                }
+            }
+
+            // Timeout
+            self.queue.asyncAfter(deadline: .now() + timeout) { [weak self] in
+                guard let self else { return }
+                resumeOnce(.failure(LookinCoreError.connectionTimeout))
+                self.connection.cancel()
+            }
+
+            self.connection.stateUpdateHandler = { [weak self] newState in
+                guard let self else { return }
                 switch newState {
                 case .ready:
-                    resumed = true
                     self.state = .connected
-                    // Clear handler to prevent double-resume on later disconnect
                     self.connection.stateUpdateHandler = { [weak self] state in
                         if case .cancelled = state { self?.state = .disconnected }
                         if case .failed = state { self?.state = .disconnected }
                     }
-                    continuation.resume()
-                case .failed(let error):
-                    resumed = true
-                    self.state = .failed(error)
-                    continuation.resume(throwing: LookinCoreError.connectionFailed(host: self.host, port: self.port))
-                case .cancelled:
-                    resumed = true
+                    resumeOnce(.success(()))
+                case .failed:
                     self.state = .disconnected
-                    continuation.resume(throwing: LookinCoreError.connectionFailed(host: self.host, port: self.port))
+                    resumeOnce(.failure(LookinCoreError.connectionFailed(host: self.host, port: self.port)))
+                case .cancelled:
+                    self.state = .disconnected
+                    resumeOnce(.failure(LookinCoreError.connectionFailed(host: self.host, port: self.port)))
                 default:
                     break
                 }
             }
-            connection.start(queue: queue)
+            self.connection.start(queue: self.queue)
         }
     }
 
@@ -67,7 +79,7 @@ public final class LKTCPConnection: @unchecked Sendable {
         state = .disconnected
     }
 
-    /// Send a Peertalk frame and wait for the response frame.
+    /// Send a Peertalk frame and receive the complete response frame.
     public func sendRequest(type: UInt32, tag: UInt32, payload: Data = Data()) async throws -> LKFrame {
         let frame = LKFrame(type: type, tag: tag, payload: payload)
         let encoded = frame.encode()
@@ -83,30 +95,45 @@ public final class LKTCPConnection: @unchecked Sendable {
             })
         }
 
-        // Receive header
-        let headerData = try await receive(exactLength: LKFrame.headerSize)
-        guard let header = LKFrame.decodeHeader(headerData) else {
+        // Receive full response: header + payload
+        // NWConnection may deliver header+payload together or separately
+        // We need to accumulate until we have the complete frame
+
+        // Step 1: Ensure we have at least the header (16 bytes)
+        while recvBuffer.count < LKFrame.headerSize {
+            let chunk = try await receiveChunk()
+            recvBuffer.append(chunk)
+        }
+
+        // Step 2: Parse header to get payload size
+        guard let header = LKFrame.decodeHeader(recvBuffer) else {
             throw LookinCoreError.protocolError(reason: "Invalid frame header")
         }
 
-        // Receive payload
-        var payloadData = Data()
-        if header.payloadSize > 0 {
-            payloadData = try await receive(exactLength: Int(header.payloadSize))
+        let totalNeeded = LKFrame.headerSize + Int(header.payloadSize)
+
+        // Step 3: Ensure we have the complete frame
+        while recvBuffer.count < totalNeeded {
+            let chunk = try await receiveChunk()
+            recvBuffer.append(chunk)
         }
+
+        // Step 4: Extract the frame and leave remainder in buffer
+        let payloadData = recvBuffer.subdata(in: LKFrame.headerSize..<totalNeeded)
+        recvBuffer = recvBuffer.subdata(in: totalNeeded..<recvBuffer.count)
 
         return LKFrame(type: header.type, tag: header.tag, payload: payloadData)
     }
 
-    private func receive(exactLength: Int) async throws -> Data {
+    private func receiveChunk() async throws -> Data {
         try await withCheckedThrowingContinuation { continuation in
-            connection.receive(minimumIncompleteLength: exactLength, maximumLength: exactLength) { data, _, _, error in
+            connection.receive(minimumIncompleteLength: 1, maximumLength: 65536) { data, _, _, error in
                 if let error {
                     continuation.resume(throwing: error)
-                } else if let data {
+                } else if let data, !data.isEmpty {
                     continuation.resume(returning: data)
                 } else {
-                    continuation.resume(throwing: LookinCoreError.protocolError(reason: "No data received"))
+                    continuation.resume(throwing: LookinCoreError.protocolError(reason: "Connection closed"))
                 }
             }
         }

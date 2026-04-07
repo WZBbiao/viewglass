@@ -5,4 +5,4 @@ Lookin.xcworkspace/xcuserdata
 .DS_Store
 DerivedData/
 Gemfile
-Gemfile.lock
+Gemfile.lock.build/

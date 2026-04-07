@@ -19,8 +19,11 @@ struct AppsList: AsyncParsableCommand {
     @Flag(name: .long, help: "Output in JSON format")
     var json = false
 
+    @Flag(name: .long, help: "Use mock data instead of live connection")
+    var mock = false
+
     mutating func run() async throws {
-        let services = ServiceContainer.makeMock()
+        let services = ServiceContainer.make(live: !mock)
         do {
             let apps = try await services.session.discoverApps()
             OutputFormatter.printApps(apps, mode: json ? .json : .human)

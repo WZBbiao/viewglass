@@ -40,4 +40,23 @@ public final class ServiceContainer: @unchecked Sendable {
             diagnostics: DiagnosticsService()
         )
     }
+
+    public static func makeLive() -> ServiceContainer {
+        let session = LiveSessionService()
+        let hierarchy = LiveHierarchyService(sessionService: session)
+        return ServiceContainer(
+            session: session,
+            hierarchy: hierarchy,
+            nodeQuery: MockNodeQueryService(), // TODO: replace with live
+            screenshot: MockScreenshotService(), // TODO: replace with live
+            mutation: MockMutationService(), // TODO: replace with live
+            export: MockExportService(),
+            diagnostics: DiagnosticsService()
+        )
+    }
+
+    /// Create a service container based on mode flag.
+    public static func make(live: Bool) -> ServiceContainer {
+        live ? makeLive() : makeMock()
+    }
 }
