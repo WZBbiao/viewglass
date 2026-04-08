@@ -85,9 +85,18 @@ public final class LiveSessionService: SessionServiceProtocol, @unchecked Sendab
             client.disconnect()
             clients.removeValue(forKey: port)
         }
-        activeClient = nil
-        activeSession = nil
-        try store.clear()
+        // Only clear active session if it matches the disconnected one
+        if activeSession?.sessionId == sessionId {
+            activeClient = nil
+            activeSession = nil
+        }
+        // Best-effort store cleanup — wrap filesystem errors
+        do {
+            try store.clear()
+        } catch {
+            // Swallow filesystem errors (permission, concurrent delete)
+            // The disconnect itself succeeded
+        }
     }
 
     public func currentSession() async -> LKSessionDescriptor? {
