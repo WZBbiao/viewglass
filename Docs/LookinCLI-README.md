@@ -350,6 +350,42 @@ Lookin CLI communicates with iOS apps via the Peertalk protocol over TCP:
 - **Serialization**: NSKeyedArchiver with NSSecureCoding
 - **Server version**: Compatible with LookinServer 1.2.8 (protocol version 7)
 
+## Live Mode
+
+All commands connect to real iOS apps by default. Session state persists to `~/.lookin-cli/session.json`.
+
+**Verified operations on real device (iPhone 16 Pro simulator, LookinServer 1.2.8):**
+
+| Operation | Status | Example |
+|-----------|--------|---------|
+| App discovery | Working | `apps list` |
+| Session connect | Working | `session connect com.example.app` |
+| Session persistence | Working | `session status` (cross-process) |
+| Hierarchy dump | Working | `hierarchy dump --session 47164` (unlimited) |
+| Node query | Working | `query "UILabel" --session 47164` |
+| Set alpha | Working | `attr set <oid> alpha 0.5 --session 47164` |
+| Set hidden | Working | `attr set <oid> hidden true --session 47164` |
+| Set text | Working | `attr set <oid> text "Hello" --session 47164` |
+| Diagnostics | Working | `diagnose all --session 47164` |
+
+**Known limitation:** After a mutation (`attr set`), subsequent mutations in separate CLI invocations require restarting the inspected app. This is due to LookinServer's internal state management after processing modification responses. Read-only operations (hierarchy, query, diagnose) work unlimited times.
+
+### Supported Attributes (40+)
+
+View properties: `alpha`, `hidden`, `opaque`, `clipsToBounds`, `userInteractionEnabled`, `backgroundColor`, `tintColor`, `contentMode`, `tag`, `frame`, `bounds`, `center`, `transform`
+
+UILabel: `text`, `numberOfLines`, `textAlignment`, `lineBreakMode`, `textColor`
+
+UIButton: `enabled`, `selected`, `highlighted`
+
+UIScrollView: `contentOffset`, `contentSize`, `contentInset`, `scrollEnabled`, `pagingEnabled`, `bounces`, `zoomScale`, `minimumZoomScale`, `maximumZoomScale`, `bouncesZoom`
+
+UIStackView: `spacing`, `axis`, `alignment`, `distribution`
+
+CALayer: `opacity`, `cornerRadius`, `borderWidth`, `borderColor`, `shadowOpacity`, `shadowRadius`, `masksToBounds`
+
+Values are parsed from strings: `"0.5"` (numbers), `"true"/"false"` (bools), `"#FF0000"` or `"255,0,0"` (colors), `"{{0,0},{100,200}}"` (rects).
+
 ## iOS App Setup
 
 Add LookinServer to your iOS project:
