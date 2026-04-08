@@ -28,7 +28,16 @@ public enum OutputFormatter {
         case .json:
             JSONOutput.print(session)
         case .human:
-            print("Connected to \(session.app.appName)")
+            let statusLabel: String
+            switch session.status {
+            case .connected:
+                statusLabel = "Connected to"
+            case .disconnected:
+                statusLabel = "Cached session for"
+            case .backgrounded:
+                statusLabel = "Backgrounded session for"
+            }
+            print("\(statusLabel) \(session.app.appName)")
             print("  Session: \(session.sessionId)")
             print("  Bundle:  \(session.app.bundleIdentifier)")
             print("  Port:    \(session.app.port)")

@@ -20,8 +20,8 @@ struct DiagnoseOverlap: AsyncParsableCommand {
         abstract: "Find overlapping interactive views"
     )
 
-    @Option(name: .long, help: "Session ID")
-    var session: String
+    @Option(name: .long, help: "Session ID (auto-detected if omitted)")
+    var session: String?
 
     @Flag(name: .long, help: "Output in JSON format")
     var json = false
@@ -29,7 +29,7 @@ struct DiagnoseOverlap: AsyncParsableCommand {
     mutating func run() async throws {
         let services = ServiceContainer.makeLive()
         do {
-            let snapshot = try await services.hierarchy.fetchHierarchy(sessionId: session)
+            let snapshot = try await services.hierarchy.fetchHierarchy(sessionId: try resolveSession(session, services: services))
             let result = services.diagnostics.diagnoseOverlap(snapshot: snapshot)
             OutputFormatter.printDiagnostic(result, mode: json ? .json : .human)
             if result.hasIssues {
@@ -54,8 +54,8 @@ struct DiagnoseHiddenInteractive: AsyncParsableCommand {
         abstract: "Find interactive views that are hidden or invisible"
     )
 
-    @Option(name: .long, help: "Session ID")
-    var session: String
+    @Option(name: .long, help: "Session ID (auto-detected if omitted)")
+    var session: String?
 
     @Flag(name: .long, help: "Output in JSON format")
     var json = false
@@ -63,7 +63,7 @@ struct DiagnoseHiddenInteractive: AsyncParsableCommand {
     mutating func run() async throws {
         let services = ServiceContainer.makeLive()
         do {
-            let snapshot = try await services.hierarchy.fetchHierarchy(sessionId: session)
+            let snapshot = try await services.hierarchy.fetchHierarchy(sessionId: try resolveSession(session, services: services))
             let result = services.diagnostics.diagnoseHiddenInteractive(snapshot: snapshot)
             OutputFormatter.printDiagnostic(result, mode: json ? .json : .human)
             if result.hasIssues {
@@ -88,8 +88,8 @@ struct DiagnoseOffscreen: AsyncParsableCommand {
         abstract: "Find views that are completely offscreen"
     )
 
-    @Option(name: .long, help: "Session ID")
-    var session: String
+    @Option(name: .long, help: "Session ID (auto-detected if omitted)")
+    var session: String?
 
     @Flag(name: .long, help: "Output in JSON format")
     var json = false
@@ -97,7 +97,7 @@ struct DiagnoseOffscreen: AsyncParsableCommand {
     mutating func run() async throws {
         let services = ServiceContainer.makeLive()
         do {
-            let snapshot = try await services.hierarchy.fetchHierarchy(sessionId: session)
+            let snapshot = try await services.hierarchy.fetchHierarchy(sessionId: try resolveSession(session, services: services))
             let result = services.diagnostics.diagnoseOffscreen(snapshot: snapshot)
             OutputFormatter.printDiagnostic(result, mode: json ? .json : .human)
             if result.hasIssues {
@@ -122,8 +122,8 @@ struct DiagnoseAll: AsyncParsableCommand {
         abstract: "Run all diagnostic checks"
     )
 
-    @Option(name: .long, help: "Session ID")
-    var session: String
+    @Option(name: .long, help: "Session ID (auto-detected if omitted)")
+    var session: String?
 
     @Flag(name: .long, help: "Output in JSON format")
     var json = false
@@ -131,7 +131,7 @@ struct DiagnoseAll: AsyncParsableCommand {
     mutating func run() async throws {
         let services = ServiceContainer.makeLive()
         do {
-            let snapshot = try await services.hierarchy.fetchHierarchy(sessionId: session)
+            let snapshot = try await services.hierarchy.fetchHierarchy(sessionId: try resolveSession(session, services: services))
             let results = [
                 services.diagnostics.diagnoseOverlap(snapshot: snapshot),
                 services.diagnostics.diagnoseHiddenInteractive(snapshot: snapshot),

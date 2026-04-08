@@ -15,8 +15,8 @@ struct ScreenshotScreen: AsyncParsableCommand {
         abstract: "Capture a full screen screenshot"
     )
 
-    @Option(name: .long, help: "Session ID")
-    var session: String
+    @Option(name: .long, help: "Session ID (auto-detected if omitted)")
+    var session: String?
 
     @Option(name: .shortAndLong, help: "Output file path")
     var output: String = "screen.png"
@@ -27,7 +27,7 @@ struct ScreenshotScreen: AsyncParsableCommand {
     mutating func run() async throws {
         let services = ServiceContainer.makeLive()
         do {
-            let ref = try await services.screenshot.captureScreen(sessionId: session, outputPath: output)
+            let ref = try await services.screenshot.captureScreen(sessionId: try resolveSession(session, services: services), outputPath: output)
             OutputFormatter.printScreenshot(ref, mode: json ? .json : .human)
         } catch let error as LookinCoreError {
             if json {
@@ -49,8 +49,8 @@ struct ScreenshotNode: AsyncParsableCommand {
     @Argument(help: "Node OID")
     var nodeId: UInt
 
-    @Option(name: .long, help: "Session ID")
-    var session: String
+    @Option(name: .long, help: "Session ID (auto-detected if omitted)")
+    var session: String?
 
     @Option(name: .shortAndLong, help: "Output file path")
     var output: String = "node.png"
@@ -61,7 +61,7 @@ struct ScreenshotNode: AsyncParsableCommand {
     mutating func run() async throws {
         let services = ServiceContainer.makeLive()
         do {
-            let ref = try await services.screenshot.captureNode(oid: nodeId, sessionId: session, outputPath: output)
+            let ref = try await services.screenshot.captureNode(oid: nodeId, sessionId: try resolveSession(session, services: services), outputPath: output)
             OutputFormatter.printScreenshot(ref, mode: json ? .json : .human)
         } catch let error as LookinCoreError {
             if json {

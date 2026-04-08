@@ -19,8 +19,8 @@ struct NodeGet: AsyncParsableCommand {
     @Argument(help: "Node OID (object identifier)")
     var nodeId: UInt
 
-    @Option(name: .long, help: "Session ID")
-    var session: String
+    @Option(name: .long, help: "Session ID (auto-detected if omitted)")
+    var session: String?
 
     @Flag(name: .long, help: "Output in JSON format")
     var json = false
@@ -28,7 +28,7 @@ struct NodeGet: AsyncParsableCommand {
     mutating func run() async throws {
         let services = ServiceContainer.makeLive()
         do {
-            let node = try await services.nodeQuery.getNode(oid: nodeId, sessionId: session)
+            let node = try await services.nodeQuery.getNode(oid: nodeId, sessionId: try resolveSession(session, services: services))
             OutputFormatter.printNode(node, mode: json ? .json : .human)
         } catch let error as LookinCoreError {
             if json {

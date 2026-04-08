@@ -31,11 +31,8 @@ public final class LiveSessionService: SessionServiceProtocol, @unchecked Sendab
             }
         }
 
-        for port in LKPortConstants.devicePorts {
-            if let app = await tryDiscoverApp(host: "127.0.0.1", port: port, deviceType: .device) {
-                apps.append(app)
-            }
-        }
+        // Note: USB device ports (47175-47179) require usbmuxd/Peertalk USB hub,
+        // which is not yet implemented. Only simulator discovery is supported.
 
         if apps.isEmpty {
             throw LookinCoreError.noAppsFound

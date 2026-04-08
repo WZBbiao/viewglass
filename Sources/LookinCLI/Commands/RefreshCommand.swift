@@ -7,8 +7,8 @@ struct RefreshCommand: AsyncParsableCommand {
         abstract: "Refresh the view hierarchy from the connected app"
     )
 
-    @Option(name: .long, help: "Session ID")
-    var session: String
+    @Option(name: .long, help: "Session ID (auto-detected if omitted)")
+    var session: String?
 
     @Flag(name: .long, help: "Output in JSON format")
     var json = false
@@ -16,7 +16,7 @@ struct RefreshCommand: AsyncParsableCommand {
     mutating func run() async throws {
         let services = ServiceContainer.makeLive()
         do {
-            let snapshot = try await services.hierarchy.refreshHierarchy(sessionId: session)
+            let snapshot = try await services.hierarchy.refreshHierarchy(sessionId: try resolveSession(session, services: services))
             if json {
                 JSONOutput.print(RefreshResult(
                     success: true,

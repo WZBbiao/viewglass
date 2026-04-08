@@ -22,8 +22,8 @@ struct ConsoleEval: AsyncParsableCommand {
     @Option(name: .long, help: "Target node OID")
     var nodeId: UInt
 
-    @Option(name: .long, help: "Session ID")
-    var session: String
+    @Option(name: .long, help: "Session ID (auto-detected if omitted)")
+    var session: String?
 
     @Flag(name: .long, help: "Output in JSON format")
     var json = false
@@ -35,7 +35,7 @@ struct ConsoleEval: AsyncParsableCommand {
             let result = try await services.mutation.invokeMethod(
                 nodeOid: nodeId,
                 selector: expression,
-                sessionId: session
+                sessionId: try resolveSession(session, services: services)
             )
             OutputFormatter.printConsoleResult(result, mode: json ? .json : .human)
         } catch let error as LookinCoreError {

@@ -18,8 +18,8 @@ struct AttrGet: AsyncParsableCommand {
     @Argument(help: "Node OID")
     var nodeId: UInt
 
-    @Option(name: .long, help: "Session ID")
-    var session: String
+    @Option(name: .long, help: "Session ID (auto-detected if omitted)")
+    var session: String?
 
     @Flag(name: .long, help: "Output in JSON format")
     var json = false
@@ -27,7 +27,7 @@ struct AttrGet: AsyncParsableCommand {
     mutating func run() async throws {
         let services = ServiceContainer.makeLive()
         do {
-            let node = try await services.nodeQuery.getNode(oid: nodeId, sessionId: session)
+            let node = try await services.nodeQuery.getNode(oid: nodeId, sessionId: try resolveSession(session, services: services))
             if json {
                 JSONOutput.print(NodeAttributes(
                     oid: node.oid,
@@ -74,8 +74,8 @@ struct AttrSet: AsyncParsableCommand {
     @Argument(help: "New value")
     var value: String
 
-    @Option(name: .long, help: "Session ID")
-    var session: String
+    @Option(name: .long, help: "Session ID (auto-detected if omitted)")
+    var session: String?
 
     @Flag(name: .long, help: "Output in JSON format")
     var json = false
@@ -103,7 +103,7 @@ struct AttrSet: AsyncParsableCommand {
                 nodeOid: nodeId,
                 key: key,
                 value: value,
-                sessionId: session
+                sessionId: try resolveSession(session, services: services)
             )
             OutputFormatter.printModification(result, mode: json ? .json : .human)
         } catch let error as LookinCoreError {

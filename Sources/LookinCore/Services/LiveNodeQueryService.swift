@@ -29,6 +29,12 @@ public final class LiveNodeQueryService: NodeQueryServiceProtocol, @unchecked Se
     }
 
     public func queryNodes(expression: String, sessionId: String) async throws -> [LKNode] {
+        // Validate syntax before network request to give clear error on malformed input
+        let trimmed = expression.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty else {
+            throw LookinCoreError.querySyntaxError(expression: expression, reason: "Empty expression")
+        }
+
         let snapshot = try await getSnapshot(sessionId: sessionId)
         let engine = LKQueryEngine()
         return try engine.execute(expression: expression, on: snapshot)

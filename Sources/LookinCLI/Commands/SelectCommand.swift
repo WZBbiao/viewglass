@@ -10,8 +10,8 @@ struct SelectCommand: AsyncParsableCommand {
     @Argument(help: "Node OID to select")
     var nodeId: UInt
 
-    @Option(name: .long, help: "Session ID")
-    var session: String
+    @Option(name: .long, help: "Session ID (auto-detected if omitted)")
+    var session: String?
 
     @Flag(name: .long, help: "Output in JSON format")
     var json = false
@@ -19,7 +19,7 @@ struct SelectCommand: AsyncParsableCommand {
     mutating func run() async throws {
         let services = ServiceContainer.makeLive()
         do {
-            let node = try await services.nodeQuery.selectNode(oid: nodeId, sessionId: session)
+            let node = try await services.nodeQuery.selectNode(oid: nodeId, sessionId: try resolveSession(session, services: services))
             if json {
                 JSONOutput.print(SelectResult(
                     success: true,

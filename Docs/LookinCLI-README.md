@@ -342,10 +342,10 @@ lookin-cli (executable)
 
 ### Protocol
 
-Lookin CLI communicates with iOS apps via the Peertalk protocol over TCP:
+Lookin CLI communicates with iOS simulator apps via the Peertalk protocol over TCP:
 
 - **Simulator ports**: 47164-47169 (localhost)
-- **Device ports**: 47175-47179 (via USB)
+- **Device ports**: 47175-47179 — not yet implemented (requires usbmuxd/Peertalk USB hub)
 - **Frame format**: 16-byte header (version + type + tag + payloadSize) + payload
 - **Serialization**: NSKeyedArchiver with NSSecureCoding
 - **Server version**: Compatible with LookinServer 1.2.8 (protocol version 7)

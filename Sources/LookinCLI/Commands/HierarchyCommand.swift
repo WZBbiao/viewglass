@@ -16,8 +16,8 @@ struct HierarchyDump: AsyncParsableCommand {
         abstract: "Dump the full view hierarchy"
     )
 
-    @Option(name: .long, help: "Session ID")
-    var session: String
+    @Option(name: .long, help: "Session ID (auto-detected if omitted)")
+    var session: String?
 
     @Flag(name: .long, help: "Output in JSON format")
     var json = false
@@ -28,7 +28,7 @@ struct HierarchyDump: AsyncParsableCommand {
     mutating func run() async throws {
         let services = ServiceContainer.makeLive()
         do {
-            var snapshot = try await services.hierarchy.fetchHierarchy(sessionId: session)
+            var snapshot = try await services.hierarchy.fetchHierarchy(sessionId: try resolveSession(session, services: services))
             if let maxDepth = maxDepth {
                 snapshot = filterByDepth(snapshot, maxDepth: maxDepth)
             }

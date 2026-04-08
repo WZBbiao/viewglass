@@ -15,8 +15,8 @@ struct ExportHierarchy: AsyncParsableCommand {
         abstract: "Export hierarchy as JSON, text, or HTML"
     )
 
-    @Option(name: .long, help: "Session ID")
-    var session: String
+    @Option(name: .long, help: "Session ID (auto-detected if omitted)")
+    var session: String?
 
     @Option(name: .shortAndLong, help: "Output file path")
     var output: String = "hierarchy.json"
@@ -30,7 +30,7 @@ struct ExportHierarchy: AsyncParsableCommand {
     mutating func run() async throws {
         let services = ServiceContainer.makeLive()
         do {
-            let snapshot = try await services.hierarchy.fetchHierarchy(sessionId: session)
+            let snapshot = try await services.hierarchy.fetchHierarchy(sessionId: try resolveSession(session, services: services))
             guard let exportFormat = ExportFormat(rawValue: format) else {
                 let msg = "Invalid format '\(format)'. Use: json, text, html"
                 if json {
@@ -72,8 +72,8 @@ struct ExportReport: AsyncParsableCommand {
         abstract: "Generate a summary report of the hierarchy"
     )
 
-    @Option(name: .long, help: "Session ID")
-    var session: String
+    @Option(name: .long, help: "Session ID (auto-detected if omitted)")
+    var session: String?
 
     @Option(name: .shortAndLong, help: "Output file path")
     var output: String = "report.md"
@@ -84,7 +84,7 @@ struct ExportReport: AsyncParsableCommand {
     mutating func run() async throws {
         let services = ServiceContainer.makeLive()
         do {
-            let snapshot = try await services.hierarchy.fetchHierarchy(sessionId: session)
+            let snapshot = try await services.hierarchy.fetchHierarchy(sessionId: try resolveSession(session, services: services))
             let path = try await services.export.exportReport(snapshot: snapshot, outputPath: output)
             if json {
                 JSONOutput.print(ExportResult(

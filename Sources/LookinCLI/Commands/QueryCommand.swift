@@ -10,8 +10,8 @@ struct QueryCommand: AsyncParsableCommand {
     @Argument(help: "Query expression (e.g. 'UILabel', '.visible AND UIButton', 'oid:123')")
     var expression: String
 
-    @Option(name: .long, help: "Session ID")
-    var session: String
+    @Option(name: .long, help: "Session ID (auto-detected if omitted)")
+    var session: String?
 
     @Flag(name: .long, help: "Output in JSON format")
     var json = false
@@ -22,7 +22,7 @@ struct QueryCommand: AsyncParsableCommand {
     mutating func run() async throws {
         let services = ServiceContainer.makeLive()
         do {
-            let nodes = try await services.nodeQuery.queryNodes(expression: expression, sessionId: session)
+            let nodes = try await services.nodeQuery.queryNodes(expression: expression, sessionId: try resolveSession(session, services: services))
             if count {
                 if json {
                     JSONOutput.print(QueryCountResult(expression: expression, count: nodes.count))
