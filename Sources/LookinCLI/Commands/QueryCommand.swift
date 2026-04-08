@@ -20,7 +20,7 @@ struct QueryCommand: AsyncParsableCommand {
     var count = false
 
     mutating func run() async throws {
-        let services = ServiceContainer.makeMock()
+        let services = ServiceContainer.makeLive()
         do {
             let nodes = try await services.nodeQuery.queryNodes(expression: expression, sessionId: session)
             if count {

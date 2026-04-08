@@ -25,7 +25,7 @@ struct ScreenshotScreen: AsyncParsableCommand {
     var json = false
 
     mutating func run() async throws {
-        let services = ServiceContainer.makeMock()
+        let services = ServiceContainer.makeLive()
         do {
             let ref = try await services.screenshot.captureScreen(sessionId: session, outputPath: output)
             OutputFormatter.printScreenshot(ref, mode: json ? .json : .human)
@@ -59,7 +59,7 @@ struct ScreenshotNode: AsyncParsableCommand {
     var json = false
 
     mutating func run() async throws {
-        let services = ServiceContainer.makeMock()
+        let services = ServiceContainer.makeLive()
         do {
             let ref = try await services.screenshot.captureNode(oid: nodeId, sessionId: session, outputPath: output)
             OutputFormatter.printScreenshot(ref, mode: json ? .json : .human)

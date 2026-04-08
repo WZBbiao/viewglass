@@ -26,7 +26,7 @@ struct NodeGet: AsyncParsableCommand {
     var json = false
 
     mutating func run() async throws {
-        let services = ServiceContainer.makeMock()
+        let services = ServiceContainer.makeLive()
         do {
             let node = try await services.nodeQuery.getNode(oid: nodeId, sessionId: session)
             OutputFormatter.printNode(node, mode: json ? .json : .human)

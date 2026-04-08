@@ -29,7 +29,7 @@ struct ConsoleEval: AsyncParsableCommand {
     var json = false
 
     mutating func run() async throws {
-        let services = ServiceContainer.makeMock()
+        let services = ServiceContainer.makeLive()
         do {
             let result = try await services.mutation.invokeMethod(
                 nodeOid: nodeId,

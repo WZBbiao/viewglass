@@ -17,7 +17,7 @@ struct SelectCommand: AsyncParsableCommand {
     var json = false
 
     mutating func run() async throws {
-        let services = ServiceContainer.makeMock()
+        let services = ServiceContainer.makeLive()
         do {
             let node = try await services.nodeQuery.selectNode(oid: nodeId, sessionId: session)
             if json {

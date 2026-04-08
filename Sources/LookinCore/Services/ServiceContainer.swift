@@ -42,14 +42,15 @@ public final class ServiceContainer: @unchecked Sendable {
     }
 
     public static func makeLive() -> ServiceContainer {
-        let session = LiveSessionService()
+        let store = SessionStore()
+        let session = LiveSessionService(store: store)
         let hierarchy = LiveHierarchyService(sessionService: session)
         return ServiceContainer(
             session: session,
             hierarchy: hierarchy,
-            nodeQuery: MockNodeQueryService(), // TODO: replace with live
-            screenshot: MockScreenshotService(), // TODO: replace with live
-            mutation: MockMutationService(), // TODO: replace with live
+            nodeQuery: LiveNodeQueryService(sessionService: session, hierarchyService: hierarchy),
+            screenshot: LiveScreenshotService(sessionService: session, hierarchyService: hierarchy),
+            mutation: LiveMutationService(sessionService: session, hierarchyService: hierarchy),
             export: MockExportService(),
             diagnostics: DiagnosticsService()
         )

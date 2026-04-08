@@ -22,7 +22,7 @@ struct SessionConnect: AsyncParsableCommand {
     var json = false
 
     mutating func run() async throws {
-        let services = ServiceContainer.makeMock()
+        let services = ServiceContainer.makeLive()
         do {
             let session = try await services.session.connect(appIdentifier: appId)
             OutputFormatter.printSession(session, mode: json ? .json : .human)
@@ -47,7 +47,7 @@ struct SessionStatus: AsyncParsableCommand {
     var json = false
 
     mutating func run() async throws {
-        let services = ServiceContainer.makeMock()
+        let services = ServiceContainer.makeLive()
         if let session = await services.session.currentSession() {
             OutputFormatter.printSession(session, mode: json ? .json : .human)
         } else {
@@ -75,7 +75,7 @@ struct SessionDisconnect: AsyncParsableCommand {
     var json = false
 
     mutating func run() async throws {
-        let services = ServiceContainer.makeMock()
+        let services = ServiceContainer.makeLive()
         do {
             try await services.session.disconnect(sessionId: session)
             if json {

@@ -14,7 +14,7 @@ struct RefreshCommand: AsyncParsableCommand {
     var json = false
 
     mutating func run() async throws {
-        let services = ServiceContainer.makeMock()
+        let services = ServiceContainer.makeLive()
         do {
             let snapshot = try await services.hierarchy.refreshHierarchy(sessionId: session)
             if json {

@@ -27,7 +27,7 @@ struct DiagnoseOverlap: AsyncParsableCommand {
     var json = false
 
     mutating func run() async throws {
-        let services = ServiceContainer.makeMock()
+        let services = ServiceContainer.makeLive()
         do {
             let snapshot = try await services.hierarchy.fetchHierarchy(sessionId: session)
             let result = services.diagnostics.diagnoseOverlap(snapshot: snapshot)
@@ -61,7 +61,7 @@ struct DiagnoseHiddenInteractive: AsyncParsableCommand {
     var json = false
 
     mutating func run() async throws {
-        let services = ServiceContainer.makeMock()
+        let services = ServiceContainer.makeLive()
         do {
             let snapshot = try await services.hierarchy.fetchHierarchy(sessionId: session)
             let result = services.diagnostics.diagnoseHiddenInteractive(snapshot: snapshot)
@@ -95,7 +95,7 @@ struct DiagnoseOffscreen: AsyncParsableCommand {
     var json = false
 
     mutating func run() async throws {
-        let services = ServiceContainer.makeMock()
+        let services = ServiceContainer.makeLive()
         do {
             let snapshot = try await services.hierarchy.fetchHierarchy(sessionId: session)
             let result = services.diagnostics.diagnoseOffscreen(snapshot: snapshot)
@@ -129,7 +129,7 @@ struct DiagnoseAll: AsyncParsableCommand {
     var json = false
 
     mutating func run() async throws {
-        let services = ServiceContainer.makeMock()
+        let services = ServiceContainer.makeLive()
         do {
             let snapshot = try await services.hierarchy.fetchHierarchy(sessionId: session)
             let results = [

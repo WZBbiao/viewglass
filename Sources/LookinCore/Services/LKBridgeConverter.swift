@@ -54,7 +54,9 @@ public enum LKBridgeConverter {
         depth: Int,
         parentOid: UInt?
     ) -> LKNode {
-        let oid = item.layerObject?.oid ?? item.viewObject?.oid ?? 0
+        let viewOid = item.viewObject?.oid
+        let layerOid = item.layerObject?.oid
+        let oid = layerOid ?? viewOid ?? 0
         let className = item.viewObject?.rawClassName() ?? item.layerObject?.rawClassName() ?? "Unknown"
         let address = item.viewObject?.memoryAddress ?? item.layerObject?.memoryAddress ?? ""
 
@@ -85,6 +87,8 @@ public enum LKBridgeConverter {
 
         return LKNode(
             oid: UInt(oid),
+            viewOid: viewOid.map { UInt($0) },
+            layerOid: layerOid.map { UInt($0) },
             className: className,
             address: address,
             frame: frame,

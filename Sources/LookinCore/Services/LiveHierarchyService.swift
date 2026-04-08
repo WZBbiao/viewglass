@@ -11,9 +11,7 @@ public final class LiveHierarchyService: HierarchyServiceProtocol, @unchecked Se
     }
 
     public func fetchHierarchy(sessionId: String) async throws -> LKHierarchySnapshot {
-        guard let client = sessionService.getClient(for: sessionId) else {
-            throw LookinCoreError.sessionNotConnected
-        }
+        let client = try await sessionService.getClient(for: sessionId)
         guard let session = await sessionService.currentSession() else {
             throw LookinCoreError.sessionNotConnected
         }

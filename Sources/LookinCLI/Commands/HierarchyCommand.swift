@@ -26,7 +26,7 @@ struct HierarchyDump: AsyncParsableCommand {
     var maxDepth: Int?
 
     mutating func run() async throws {
-        let services = ServiceContainer.makeMock()
+        let services = ServiceContainer.makeLive()
         do {
             var snapshot = try await services.hierarchy.fetchHierarchy(sessionId: session)
             if let maxDepth = maxDepth {

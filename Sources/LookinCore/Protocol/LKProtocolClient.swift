@@ -114,6 +114,44 @@ public final class LKProtocolClient: @unchecked Sendable {
         return names
     }
 
+    /// Submit a custom attribute modification.
+    public func submitCustomModification(_ modification: LookinCustomAttrModification) async throws {
+        let response = try await sendRequest(type: LookinRequestTypeCustomAttrModification, data: modification)
+        if let error = response.error {
+            throw LookinCoreError.attributeModificationFailed(
+                key: modification.customSetterID ?? "unknown",
+                reason: error.localizedDescription
+            )
+        }
+    }
+
+    /// Enable or disable a gesture recognizer.
+    public func modifyGestureRecognizer(oid: UInt, enabled: Bool) async throws {
+        let requestData: NSDictionary = [
+            "oid": NSNumber(value: oid),
+            "enable": NSNumber(value: enabled)
+        ]
+        let response = try await sendRequest(type: LookinRequestTypeModifyRecognizerEnable, data: requestData)
+        if let error = response.error {
+            throw LookinCoreError.protocolError(reason: error.localizedDescription)
+        }
+    }
+
+    /// Fetch details for a specific object by OID.
+    public func fetchObject(oid: UInt) async throws -> Any? {
+        let response = try await sendRequest(type: LookinRequestTypeFetchObject, data: NSNumber(value: oid))
+        return response.data
+    }
+
+    /// Fetch all attribute groups for a specific object by OID.
+    public func fetchAllAttrGroups(oid: UInt) async throws -> [LookinAttributesGroup] {
+        let response = try await sendRequest(type: LookinRequestTypeAllAttrGroups, data: NSNumber(value: oid))
+        guard let groups = response.data as? [LookinAttributesGroup] else {
+            return []
+        }
+        return groups
+    }
+
     // MARK: - Internal
 
     private func sendRequest(type: UInt32, data: NSObject?) async throws -> LookinConnectionResponseAttachment {

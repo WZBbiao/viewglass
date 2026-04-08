@@ -2,6 +2,8 @@ import Foundation
 
 public struct LKNode: Codable, Equatable, Sendable {
     public let oid: UInt
+    public let viewOid: UInt?
+    public let layerOid: UInt?
     public let className: String
     public let address: String
     public let frame: LKRect
@@ -33,6 +35,8 @@ public struct LKNode: Codable, Equatable, Sendable {
 
     public init(
         oid: UInt,
+        viewOid: UInt? = nil,
+        layerOid: UInt? = nil,
         className: String,
         address: String = "",
         frame: LKRect = LKRect(x: 0, y: 0, width: 0, height: 0),
@@ -55,6 +59,8 @@ public struct LKNode: Codable, Equatable, Sendable {
         attributeGroups: [LKAttributeGroup]? = nil
     ) {
         self.oid = oid
+        self.viewOid = viewOid
+        self.layerOid = layerOid
         self.className = className
         self.address = address
         self.frame = frame

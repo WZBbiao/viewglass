@@ -28,7 +28,7 @@ struct ExportHierarchy: AsyncParsableCommand {
     var json = false
 
     mutating func run() async throws {
-        let services = ServiceContainer.makeMock()
+        let services = ServiceContainer.makeLive()
         do {
             let snapshot = try await services.hierarchy.fetchHierarchy(sessionId: session)
             guard let exportFormat = ExportFormat(rawValue: format) else {
@@ -82,7 +82,7 @@ struct ExportReport: AsyncParsableCommand {
     var json = false
 
     mutating func run() async throws {
-        let services = ServiceContainer.makeMock()
+        let services = ServiceContainer.makeLive()
         do {
             let snapshot = try await services.hierarchy.fetchHierarchy(sessionId: session)
             let path = try await services.export.exportReport(snapshot: snapshot, outputPath: output)

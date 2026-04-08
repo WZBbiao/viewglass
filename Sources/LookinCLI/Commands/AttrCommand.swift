@@ -25,7 +25,7 @@ struct AttrGet: AsyncParsableCommand {
     var json = false
 
     mutating func run() async throws {
-        let services = ServiceContainer.makeMock()
+        let services = ServiceContainer.makeLive()
         do {
             let node = try await services.nodeQuery.getNode(oid: nodeId, sessionId: session)
             if json {
@@ -84,7 +84,7 @@ struct AttrSet: AsyncParsableCommand {
     var force = false
 
     mutating func run() async throws {
-        let services = ServiceContainer.makeMock()
+        let services = ServiceContainer.makeLive()
 
         let dangerousKeys = ["removeFromSuperview", "dealloc", "release"]
         if dangerousKeys.contains(key) && !force {
