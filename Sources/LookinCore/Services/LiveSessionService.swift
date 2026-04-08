@@ -11,9 +11,14 @@ public final class LiveSessionService: SessionServiceProtocol, @unchecked Sendab
 
     public init(store: SessionStore = SessionStore()) {
         self.store = store
-        // Restore persisted session
+        // Load persisted session info (but mark as potentially stale — not verified)
         if let saved = store.load() {
-            activeSession = saved
+            activeSession = LKSessionDescriptor(
+                sessionId: saved.sessionId,
+                app: saved.app,
+                connectedAt: saved.connectedAt,
+                status: .disconnected // Mark as disconnected until reconnect verifies
+            )
         }
     }
 
