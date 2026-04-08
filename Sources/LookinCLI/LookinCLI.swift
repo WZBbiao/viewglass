@@ -4,8 +4,8 @@ import LookinCore
 @main
 struct LookinCLI: AsyncParsableCommand {
     static let configuration = CommandConfiguration(
-        commandName: "lookin-cli",
-        abstract: "Lookin CLI — programmable iOS view hierarchy inspector",
+        commandName: "viewglass",
+        abstract: "Viewglass — programmable iOS runtime inspector",
         version: "0.1.0",
         subcommands: [
             AppsCommand.self,

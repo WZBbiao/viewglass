@@ -10,20 +10,20 @@ build:
 install: build
 	@if [ -w "$(INSTALL_DIR)" ]; then \
 		mkdir -p $(INSTALL_DIR); \
-		cp $(BUILD_DIR)/lookin-cli $(INSTALL_DIR)/lookin-cli; \
+		cp $(BUILD_DIR)/viewglass $(INSTALL_DIR)/viewglass; \
 	else \
 		sudo mkdir -p $(INSTALL_DIR); \
-		sudo cp $(BUILD_DIR)/lookin-cli $(INSTALL_DIR)/lookin-cli; \
+		sudo cp $(BUILD_DIR)/viewglass $(INSTALL_DIR)/viewglass; \
 	fi
-	@echo "Installed lookin-cli to $(INSTALL_DIR)/lookin-cli"
+	@echo "Installed viewglass to $(INSTALL_DIR)/viewglass"
 
 uninstall:
-	@if [ -w "$(INSTALL_DIR)/lookin-cli" ]; then \
-		rm -f $(INSTALL_DIR)/lookin-cli; \
+	@if [ -w "$(INSTALL_DIR)/viewglass" ]; then \
+		rm -f $(INSTALL_DIR)/viewglass; \
 	else \
-		sudo rm -f $(INSTALL_DIR)/lookin-cli; \
+		sudo rm -f $(INSTALL_DIR)/viewglass; \
 	fi
-	@echo "Uninstalled lookin-cli"
+	@echo "Uninstalled viewglass"
 
 clean:
 	swift package clean

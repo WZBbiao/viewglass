@@ -1,6 +1,6 @@
-# Lookin CLI
+# Viewglass
 
-Lookin CLI (`lookin-cli`) is a programmable command-line interface for [Lookin](https://lookin.work) — the iOS view hierarchy inspector. It exposes Lookin's inspection capabilities in a machine-friendly way, suitable for scripts, CI pipelines, and AI-driven workflows.
+Viewglass (`viewglass`) is a programmable command-line interface for [Lookin](https://lookin.work) — the iOS view hierarchy inspector. It exposes Lookin's inspection capabilities in a machine-friendly way, suitable for scripts, CI pipelines, and AI-driven workflows.
 
 ## Installation
 
@@ -8,7 +8,7 @@ Lookin CLI (`lookin-cli`) is a programmable command-line interface for [Lookin](
 
 ```bash
 brew tap WZBbiao/tap   # only needed once
-brew install lookin-cli
+brew install viewglass
 ```
 
 > Note: This builds from source (requires Xcode). First install takes a few minutes.
@@ -17,23 +17,23 @@ brew install lookin-cli
 ### One-liner
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/WZBbiao/Lookin/Develop/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/WZBbiao/viewglass/main/scripts/install.sh | bash
 ```
 
 Downloads a pre-built binary from GitHub Releases, or builds from source as fallback.
 
 ### GitHub Releases
 
-Download the latest binary for your architecture from [Releases](https://github.com/WZBbiao/Lookin/releases):
+Download the latest binary for your architecture from [Releases](https://github.com/WZBbiao/viewglass/releases):
 
 ```bash
 # Apple Silicon (M1/M2/M3/M4)
-curl -fsSL https://github.com/WZBbiao/Lookin/releases/latest/download/lookin-cli-macos-arm64.tar.gz | tar xz
-sudo mv lookin-cli /usr/local/bin/
+curl -fsSL https://github.com/WZBbiao/viewglass/releases/latest/download/viewglass-macos-arm64.tar.gz | tar xz
+sudo mv viewglass /usr/local/bin/
 
 # Intel
-curl -fsSL https://github.com/WZBbiao/Lookin/releases/latest/download/lookin-cli-macos-x86_64.tar.gz | tar xz
-sudo mv lookin-cli /usr/local/bin/
+curl -fsSL https://github.com/WZBbiao/viewglass/releases/latest/download/viewglass-macos-x86_64.tar.gz | tar xz
+sudo mv viewglass /usr/local/bin/
 ```
 
 ### Build from source
@@ -41,8 +41,8 @@ sudo mv lookin-cli /usr/local/bin/
 Requires macOS 12.0+ and Swift 5.9+.
 
 ```bash
-git clone https://github.com/WZBbiao/Lookin.git
-cd lookin
+git clone https://github.com/WZBbiao/viewglass.git
+cd viewglass
 make install    # Builds release and installs to /usr/local/bin
 ```
 
@@ -50,14 +50,14 @@ Or manually:
 
 ```bash
 swift build -c release
-cp .build/release/lookin-cli /usr/local/bin/
+cp .build/release/viewglass /usr/local/bin/
 ```
 
 ### Uninstall
 
 ```bash
 make uninstall
-# or: rm /usr/local/bin/lookin-cli
+# or: rm /usr/local/bin/viewglass
 ```
 
 ## Requirements
@@ -69,22 +69,22 @@ make uninstall
 
 ```bash
 # Scan for running apps with LookinServer
-lookin-cli scan
+viewglass scan
 
 # List inspectable apps
-lookin-cli apps list
-lookin-cli apps list --json
+viewglass apps list
+viewglass apps list --json
 
 # Connect and dump hierarchy
-lookin-cli hierarchy dump --session 47164
-lookin-cli hierarchy dump --session 47164 --json
+viewglass hierarchy dump --session 47164
+viewglass hierarchy dump --session 47164 --json
 
 # Query nodes
-lookin-cli query "UIButton" --session 47164
-lookin-cli query ".visible AND UILabel" --session 47164 --json
+viewglass query "UIButton" --session 47164
+viewglass query ".visible AND UILabel" --session 47164 --json
 
 # Run diagnostics
-lookin-cli diagnose all --session 47164
+viewglass diagnose all --session 47164
 ```
 
 ## Commands
@@ -94,9 +94,9 @@ lookin-cli diagnose all --session 47164
 Discover and list inspectable iOS apps on connected simulators and devices.
 
 ```bash
-lookin-cli apps list              # Human-readable output
-lookin-cli apps list --json       # JSON output
-lookin-cli apps list --mock       # Use mock data (for testing)
+viewglass apps list              # Human-readable output
+viewglass apps list --json       # JSON output
+viewglass apps list --mock       # Use mock data (for testing)
 ```
 
 Output example:
@@ -111,10 +111,10 @@ Output example:
 Manage inspection sessions.
 
 ```bash
-lookin-cli session connect <app-id>              # Connect by bundle ID
-lookin-cli session connect com.example.app --json
-lookin-cli session status                         # Show current session
-lookin-cli session disconnect --session <id>      # Disconnect
+viewglass session connect <app-id>              # Connect by bundle ID
+viewglass session connect com.example.app --json
+viewglass session status                         # Show current session
+viewglass session disconnect --session <id>      # Disconnect
 ```
 
 ### hierarchy
@@ -122,9 +122,9 @@ lookin-cli session disconnect --session <id>      # Disconnect
 Fetch and display the full view hierarchy.
 
 ```bash
-lookin-cli hierarchy dump --session 47164
-lookin-cli hierarchy dump --session 47164 --json
-lookin-cli hierarchy dump --session 47164 --max-depth 3   # Limit tree depth
+viewglass hierarchy dump --session 47164
+viewglass hierarchy dump --session 47164 --json
+viewglass hierarchy dump --session 47164 --max-depth 3   # Limit tree depth
 ```
 
 Human-readable output:
@@ -146,8 +146,8 @@ UIWindow (oid:1) frame:(0,0,390,844)
 Inspect individual nodes by OID (object identifier).
 
 ```bash
-lookin-cli node get 4 --session 47164
-lookin-cli node get 4 --session 47164 --json
+viewglass node get 4 --session 47164
+viewglass node get 4 --session 47164 --json
 ```
 
 Output:
@@ -169,9 +169,9 @@ UIButton (oid:4)
 Query nodes using a powerful expression language.
 
 ```bash
-lookin-cli query "UILabel" --session 47164
-lookin-cli query ".visible AND UIButton" --session 47164 --json
-lookin-cli query "UIButton" --session 47164 --count    # Just count
+viewglass query "UILabel" --session 47164
+viewglass query ".visible AND UIButton" --session 47164 --json
+viewglass query "UIButton" --session 47164 --count    # Just count
 ```
 
 #### Query Syntax
@@ -199,12 +199,12 @@ lookin-cli query "UIButton" --session 47164 --count    # Just count
 Examples:
 
 ```bash
-lookin-cli query "UIButton AND .visible" --session 47164
-lookin-cli query "(UIButton OR UILabel) AND .visible" --session 47164
-lookin-cli query "#submitButton" --session 47164
-lookin-cli query "@\"Tap me\"" --session 47164
-lookin-cli query "parent:UIStackView" --session 47164
-lookin-cli query "NOT UIView" --session 47164
+viewglass query "UIButton AND .visible" --session 47164
+viewglass query "(UIButton OR UILabel) AND .visible" --session 47164
+viewglass query "#submitButton" --session 47164
+viewglass query "@\"Tap me\"" --session 47164
+viewglass query "parent:UIStackView" --session 47164
+viewglass query "NOT UIView" --session 47164
 ```
 
 ### screenshot
@@ -212,8 +212,8 @@ lookin-cli query "NOT UIView" --session 47164
 Capture screenshots.
 
 ```bash
-lookin-cli screenshot screen --session 47164 -o screen.png
-lookin-cli screenshot node 4 --session 47164 -o button.png
+viewglass screenshot screen --session 47164 -o screen.png
+viewglass screenshot node 4 --session 47164 -o button.png
 ```
 
 ### refresh
@@ -221,8 +221,8 @@ lookin-cli screenshot node 4 --session 47164 -o button.png
 Refresh the view hierarchy from the connected app.
 
 ```bash
-lookin-cli refresh --session 47164
-lookin-cli refresh --session 47164 --json
+viewglass refresh --session 47164
+viewglass refresh --session 47164 --json
 ```
 
 ### attr
@@ -231,15 +231,15 @@ Get or set node attributes.
 
 ```bash
 # Get all attributes
-lookin-cli attr get 4 --session 47164
-lookin-cli attr get 4 --session 47164 --json
+viewglass attr get 4 --session 47164
+viewglass attr get 4 --session 47164 --json
 
 # Set an attribute
-lookin-cli attr set 4 alpha 0.5 --session 47164
-lookin-cli attr set 4 hidden true --session 47164
+viewglass attr set 4 alpha 0.5 --session 47164
+viewglass attr set 4 hidden true --session 47164
 
 # Dangerous mutations require --force
-lookin-cli attr set 4 removeFromSuperview "" --session 47164 --force
+viewglass attr set 4 removeFromSuperview "" --session 47164 --force
 ```
 
 ### console
@@ -247,8 +247,8 @@ lookin-cli attr set 4 removeFromSuperview "" --session 47164 --force
 Evaluate methods on objects in the running app.
 
 ```bash
-lookin-cli console eval setNeedsLayout --node-id 4 --session 47164
-lookin-cli console eval layoutIfNeeded --node-id 4 --session 47164 --json
+viewglass console eval setNeedsLayout --node-id 4 --session 47164
+viewglass console eval layoutIfNeeded --node-id 4 --session 47164 --json
 ```
 
 ### select
@@ -256,7 +256,7 @@ lookin-cli console eval layoutIfNeeded --node-id 4 --session 47164 --json
 Select a node in the running app for inspection.
 
 ```bash
-lookin-cli select 4 --session 47164
+viewglass select 4 --session 47164
 ```
 
 ### export
@@ -265,12 +265,12 @@ Export hierarchy data to files.
 
 ```bash
 # Export as JSON / text / HTML
-lookin-cli export hierarchy --session 47164 -o hierarchy.json
-lookin-cli export hierarchy --session 47164 -o tree.txt --format text
-lookin-cli export hierarchy --session 47164 -o tree.html --format html
+viewglass export hierarchy --session 47164 -o hierarchy.json
+viewglass export hierarchy --session 47164 -o tree.txt --format text
+viewglass export hierarchy --session 47164 -o tree.html --format html
 
 # Generate summary report
-lookin-cli export report --session 47164 -o report.md
+viewglass export report --session 47164 -o report.md
 ```
 
 ### diagnose
@@ -279,12 +279,12 @@ Run diagnostic checks on the view hierarchy.
 
 ```bash
 # Individual checks
-lookin-cli diagnose overlap --session 47164             # Overlapping interactive views
-lookin-cli diagnose hidden-interactive --session 47164  # Hidden but interactive views
-lookin-cli diagnose offscreen --session 47164           # Offscreen views
+viewglass diagnose overlap --session 47164             # Overlapping interactive views
+viewglass diagnose hidden-interactive --session 47164  # Hidden but interactive views
+viewglass diagnose offscreen --session 47164           # Offscreen views
 
 # Run all diagnostics
-lookin-cli diagnose all --session 47164 --json
+viewglass diagnose all --session 47164 --json
 ```
 
 Output example:
@@ -310,7 +310,7 @@ Exit code is non-zero when issues are found, making it suitable for CI checks.
 Quick connectivity test — scans all Lookin ports and reports discovered apps.
 
 ```bash
-lookin-cli scan
+viewglass scan
 ```
 
 ## JSON Output
@@ -318,7 +318,7 @@ lookin-cli scan
 All commands support `--json` for machine-parseable output. JSON field names are stable across versions.
 
 ```bash
-lookin-cli apps list --json
+viewglass apps list --json
 ```
 
 ```json
@@ -367,7 +367,7 @@ Errors are also returned as JSON when `--json` is specified:
 ## Architecture
 
 ```
-lookin-cli (executable)
+viewglass (executable)
     |
     +-- LookinCLI        (12 command families + output formatters)
     |
@@ -385,7 +385,7 @@ lookin-cli (executable)
 
 ### Protocol
 
-Lookin CLI communicates with iOS simulator apps via the Peertalk protocol over TCP:
+Viewglass communicates with iOS simulator apps via the Peertalk protocol over TCP:
 
 - **Simulator ports**: 47164-47169 (localhost)
 - **Device ports**: 47175-47179 — not yet implemented (requires usbmuxd/Peertalk USB hub)
@@ -395,7 +395,7 @@ Lookin CLI communicates with iOS simulator apps via the Peertalk protocol over T
 
 ## Live Mode
 
-All commands connect to real iOS apps by default. Session state persists to `~/.lookin-cli/session.json`.
+All commands connect to real iOS apps by default. Session state persists to `~/.viewglass/session.json`.
 
 **Verified operations on real device (iPhone 16 Pro simulator, LookinServer 1.2.8):**
 
@@ -460,4 +460,4 @@ Test categories:
 
 ## License
 
-Same as [Lookin](https://github.com/WZBbiao/Lookin) — MIT License.
+Same as [Lookin](https://github.com/WZBbiao/viewglass) — MIT License.

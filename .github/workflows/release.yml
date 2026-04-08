@@ -3,7 +3,7 @@ name: Release
 on:
   push:
     tags:
-      - 'cli-v*'
+      - 'viewglass-v*'
 
 jobs:
   build:
@@ -26,17 +26,17 @@ jobs:
 
       - name: Package binary
         run: |
-          cp .build/release/lookin-cli .
-          tar -czf lookin-cli-macos-${{ matrix.arch }}.tar.gz lookin-cli
-          shasum -a 256 lookin-cli-macos-${{ matrix.arch }}.tar.gz > lookin-cli-macos-${{ matrix.arch }}.tar.gz.sha256
+          cp .build/release/viewglass .
+          tar -czf viewglass-macos-${{ matrix.arch }}.tar.gz viewglass
+          shasum -a 256 viewglass-macos-${{ matrix.arch }}.tar.gz > viewglass-macos-${{ matrix.arch }}.tar.gz.sha256
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: lookin-cli-macos-${{ matrix.arch }}
+          name: viewglass-macos-${{ matrix.arch }}
           path: |
-            lookin-cli-macos-${{ matrix.arch }}.tar.gz
-            lookin-cli-macos-${{ matrix.arch }}.tar.gz.sha256
+            viewglass-macos-${{ matrix.arch }}.tar.gz
+            viewglass-macos-${{ matrix.arch }}.tar.gz.sha256
 
   release:
     needs: build
@@ -52,8 +52,8 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            lookin-cli-macos-arm64/lookin-cli-macos-arm64.tar.gz
-            lookin-cli-macos-arm64/lookin-cli-macos-arm64.tar.gz.sha256
-            lookin-cli-macos-x86_64/lookin-cli-macos-x86_64.tar.gz
-            lookin-cli-macos-x86_64/lookin-cli-macos-x86_64.tar.gz.sha256
+            viewglass-macos-arm64/viewglass-macos-arm64.tar.gz
+            viewglass-macos-arm64/viewglass-macos-arm64.tar.gz.sha256
+            viewglass-macos-x86_64/viewglass-macos-x86_64.tar.gz
+            viewglass-macos-x86_64/viewglass-macos-x86_64.tar.gz.sha256
           generate_release_notes: true

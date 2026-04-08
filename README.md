@@ -4,7 +4,7 @@ This repository is evolving from a Lookin-derived desktop inspector into a moder
 
 Current public deliverable:
 
-- `lookin-cli`: a CLI-first runtime inspector compatible with LookinServer
+- `viewglass`: a CLI-first runtime inspector compatible with LookinServer
 
 Target product direction:
 
@@ -19,7 +19,7 @@ Recommended standalone product name:
 
 - `Viewglass`
 
-The current repository can continue shipping `lookin-cli` during the transition, then later move to a standalone `viewglass` product/repo once releases and packaging stabilize.
+The repository now ships under the `Viewglass` brand and `viewglass` binary, while remaining compatible with the Lookin ecosystem where practical.
 
 ## Start Here
 

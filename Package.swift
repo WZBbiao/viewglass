@@ -2,11 +2,11 @@
 import PackageDescription
 
 let package = Package(
-    name: "LookinCLI",
+    name: "Viewglass",
     platforms: [.macOS(.v12)],
     products: [
-        .executable(name: "lookin-cli", targets: ["LookinCLI"]),
-        .library(name: "LookinCore", targets: ["LookinCore"]),
+        .executable(name: "viewglass", targets: ["LookinCLI"]),
+        .library(name: "ViewglassCore", targets: ["LookinCore"]),
     ],
     dependencies: [
         .package(url: "https://github.com/apple/swift-argument-parser.git", from: "1.3.0"),

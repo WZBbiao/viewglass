@@ -31,7 +31,7 @@ Why:
 
 - Product / repo: `viewglass`
 - CLI binary: `viewglass`
-- Compatibility binary alias during migration: `lookin-cli`
+- Compatibility binary alias during migration: optional `lookin-cli` shim only if needed
 - Homebrew formula after migration: `viewglass`
 - MCP server name: `viewglass-mcp`
 - Swift package modules:
@@ -114,8 +114,8 @@ Default recommendation: keep MCP in the main repo until it becomes operationally
 
 ### Short term
 
-- keep `lookin-cli` as the shipped binary
-- add `Viewglass` branding to docs
+- ship `viewglass` as the primary binary
+- add `Viewglass` branding to docs, release assets, and package metadata
 - present the project as independently maintained
 - keep Lookin compatibility explicit
 
@@ -126,7 +126,7 @@ Default recommendation: keep MCP in the main repo until it becomes operationally
 - keep this repo as compatibility/history, or archive it after the transition
 - add a binary alias strategy:
   - `viewglass`
-  - `lookin-cli` as a compatibility shim for one or two release cycles
+  - optional `lookin-cli` compatibility shim for one or two release cycles
 
 ### Long term
 
@@ -160,7 +160,7 @@ This project should present the maintainer identity as:
 
 ## Immediate Recommendation
 
-Do not rename code modules yet.
+Do not force a full source tree rename in the same pass.
 
 Do this first:
 

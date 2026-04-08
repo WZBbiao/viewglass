@@ -38,7 +38,7 @@ Build Viewglass into an AI-native iOS runtime inspector that starts with a stron
 
 ### Milestone A
 
-- make `lookin-cli` packaging and release flow reliable
+- make `viewglass` packaging and release flow reliable
 - stabilize docs and installation
 - fix session lifecycle edge cases
 
@@ -55,5 +55,5 @@ Build Viewglass into an AI-native iOS runtime inspector that starts with a stron
 
 ### Milestone D
 
-- rebrand to the standalone `viewglass` product repo
-- add compatibility alias strategy for `lookin-cli`
+- complete the standalone `viewglass` product repo migration
+- decide whether a temporary `lookin-cli` compatibility alias is still needed
