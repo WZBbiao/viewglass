@@ -17,7 +17,8 @@ struct ScanCommand: AsyncParsableCommand {
             OutputFormatter.printApps(apps, mode: json ? .json : .human)
         } catch {
             if json {
-                JSONOutput.print(ScanResult(apps: [], error: "No inspectable apps found"))
+                // Use same error format as all other commands
+                JSONOutput.printError(error: .noAppsFound)
             } else {
                 printStderr("No inspectable apps found on simulator ports 47164-47169.")
                 printStderr("Ensure your iOS app has LookinServer integrated and is running in the simulator.")
@@ -25,9 +26,4 @@ struct ScanCommand: AsyncParsableCommand {
             throw ExitCode(10)
         }
     }
-}
-
-struct ScanResult: Codable {
-    let apps: [LKAppDescriptor]
-    let error: String?
 }

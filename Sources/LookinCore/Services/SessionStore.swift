@@ -28,8 +28,9 @@ public final class SessionStore: @unchecked Sendable {
         return try? decoder.decode(LKSessionDescriptor.self, from: data)
     }
 
-    public func clear() {
-        try? FileManager.default.removeItem(at: fileURL)
+    public func clear() throws {
+        guard FileManager.default.fileExists(atPath: fileURL.path) else { return }
+        try FileManager.default.removeItem(at: fileURL)
     }
 
     public var exists: Bool {
