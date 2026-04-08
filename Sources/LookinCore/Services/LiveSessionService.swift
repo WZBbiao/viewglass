@@ -115,6 +115,18 @@ public final class LiveSessionService: SessionServiceProtocol, @unchecked Sendab
         try await client.connect(host: "127.0.0.1", port: port)
         clients[port] = client
         activeClient = client
+
+        // Update session status to connected after successful reconnect
+        if let current = activeSession, current.sessionId == sessionId {
+            activeSession = LKSessionDescriptor(
+                sessionId: current.sessionId,
+                app: current.app,
+                connectedAt: Date(),
+                status: .connected
+            )
+            try? store.save(activeSession!)
+        }
+
         return client
     }
 
