@@ -7,3 +7,7 @@ DerivedData/
 Gemfile
 Gemfile.lock
 .build/
+.cache/
+.claude/
+.tmp-home/
+.vscode/
