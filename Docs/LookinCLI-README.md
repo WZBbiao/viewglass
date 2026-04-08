@@ -2,25 +2,58 @@
 
 Lookin CLI (`lookin-cli`) is a programmable command-line interface for [Lookin](https://lookin.work) — the iOS view hierarchy inspector. It exposes Lookin's inspection capabilities in a machine-friendly way, suitable for scripts, CI pipelines, and AI-driven workflows.
 
-## Requirements
+## Installation
 
-- macOS 12.0+
-- Swift 5.9+
-- iOS app with [LookinServer](https://github.com/QMUI/LookinServer) integrated (for live inspection)
-
-## Build
+### One-liner (recommended)
 
 ```bash
-swift build
+curl -fsSL https://raw.githubusercontent.com/nicklama/lookin/Develop/scripts/install.sh | bash
 ```
 
-Binary is at `.build/debug/lookin-cli`.
+Downloads a pre-built binary from GitHub Releases, or builds from source as fallback.
 
-Release build:
+### GitHub Releases
+
+Download the latest binary for your architecture from [Releases](https://github.com/nicklama/lookin/releases):
+
+```bash
+# Apple Silicon (M1/M2/M3/M4)
+curl -fsSL https://github.com/nicklama/lookin/releases/latest/download/lookin-cli-macos-arm64.tar.gz | tar xz
+sudo mv lookin-cli /usr/local/bin/
+
+# Intel
+curl -fsSL https://github.com/nicklama/lookin/releases/latest/download/lookin-cli-macos-x86_64.tar.gz | tar xz
+sudo mv lookin-cli /usr/local/bin/
+```
+
+### Build from source
+
+Requires macOS 12.0+ and Swift 5.9+.
+
+```bash
+git clone https://github.com/nicklama/lookin.git
+cd lookin
+make install    # Builds release and installs to /usr/local/bin
+```
+
+Or manually:
 
 ```bash
 swift build -c release
+cp .build/release/lookin-cli /usr/local/bin/
 ```
+
+### Uninstall
+
+```bash
+make uninstall
+# or: rm /usr/local/bin/lookin-cli
+```
+
+## Requirements
+
+- macOS 12.0+
+- iOS app with [LookinServer](https://github.com/QMUI/LookinServer) integrated (for live inspection)
 
 ## Quick Start
 

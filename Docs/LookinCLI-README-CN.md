@@ -2,25 +2,58 @@
 
 Lookin CLI (`lookin-cli`) 是 [Lookin](https://lookin.work) 的命令行接口 —— 一款 iOS 视图层级检查工具。它将 Lookin 的检查能力以可编程的方式暴露出来，适用于脚本自动化、CI 流水线和 AI 驱动的工作流。
 
-## 环境要求
+## 安装
 
-- macOS 12.0+
-- Swift 5.9+
-- iOS 应用需集成 [LookinServer](https://github.com/QMUI/LookinServer)（用于实时检查）
-
-## 构建
+### 一键安装（推荐）
 
 ```bash
-swift build
+curl -fsSL https://raw.githubusercontent.com/nicklama/lookin/Develop/scripts/install.sh | bash
 ```
 
-二进制文件位于 `.build/debug/lookin-cli`。
+自动下载预构建二进制，若无可用版本则从源码编译。
 
-Release 构建：
+### 从 GitHub Releases 下载
+
+从 [Releases](https://github.com/nicklama/lookin/releases) 页面下载对应架构的二进制：
+
+```bash
+# Apple Silicon (M1/M2/M3/M4)
+curl -fsSL https://github.com/nicklama/lookin/releases/latest/download/lookin-cli-macos-arm64.tar.gz | tar xz
+sudo mv lookin-cli /usr/local/bin/
+
+# Intel
+curl -fsSL https://github.com/nicklama/lookin/releases/latest/download/lookin-cli-macos-x86_64.tar.gz | tar xz
+sudo mv lookin-cli /usr/local/bin/
+```
+
+### 从源码构建
+
+需要 macOS 12.0+ 和 Swift 5.9+。
+
+```bash
+git clone https://github.com/nicklama/lookin.git
+cd lookin
+make install    # 编译 release 版本并安装到 /usr/local/bin
+```
+
+或手动操作：
 
 ```bash
 swift build -c release
+cp .build/release/lookin-cli /usr/local/bin/
 ```
+
+### 卸载
+
+```bash
+make uninstall
+# 或: rm /usr/local/bin/lookin-cli
+```
+
+## 环境要求
+
+- macOS 12.0+
+- iOS 应用需集成 [LookinServer](https://github.com/QMUI/LookinServer)（用于实时检查）
 
 ## 快速开始
 
