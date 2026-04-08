@@ -4,12 +4,15 @@ Lookin CLI (`lookin-cli`) is a programmable command-line interface for [Lookin](
 
 ## Installation
 
-### Homebrew (recommended)
+### Homebrew
 
 ```bash
 brew tap WZBbiao/tap   # only needed once
 brew install lookin-cli
 ```
+
+> Note: This builds from source (requires Xcode). First install takes a few minutes.
+> Pre-built binaries are available from [GitHub Releases](#github-releases) for faster installation.
 
 ### One-liner
 
