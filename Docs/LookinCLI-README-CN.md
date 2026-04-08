@@ -7,13 +7,7 @@ Lookin CLI (`lookin-cli`) 是 [Lookin](https://lookin.work) 的命令行接口 �
 ### Homebrew（推荐）
 
 ```bash
-brew install WZBbiao/tap/lookin-cli
-```
-
-或者先 tap 再安装：
-
-```bash
-brew tap WZBbiao/tap
+brew tap WZBbiao/tap   # 仅首次需要
 brew install lookin-cli
 ```
 

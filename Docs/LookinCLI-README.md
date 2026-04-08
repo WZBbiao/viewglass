@@ -7,13 +7,7 @@ Lookin CLI (`lookin-cli`) is a programmable command-line interface for [Lookin](
 ### Homebrew (recommended)
 
 ```bash
-brew install WZBbiao/tap/lookin-cli
-```
-
-Or tap first, then install by short name:
-
-```bash
-brew tap WZBbiao/tap
+brew tap WZBbiao/tap   # only needed once
 brew install lookin-cli
 ```
 
