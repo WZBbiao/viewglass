@@ -4,31 +4,38 @@ Lookin CLI (`lookin-cli`) is a programmable command-line interface for [Lookin](
 
 ## Installation
 
-### Homebrew
+### Homebrew (recommended)
 
 ```bash
-brew install nicklama/tap/lookin-cli
+brew install WZBbiao/tap/lookin-cli
+```
+
+Or tap first, then install by short name:
+
+```bash
+brew tap WZBbiao/tap
+brew install lookin-cli
 ```
 
 ### One-liner
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/nicklama/lookin/Develop/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/WZBbiao/Lookin/Develop/scripts/install.sh | bash
 ```
 
 Downloads a pre-built binary from GitHub Releases, or builds from source as fallback.
 
 ### GitHub Releases
 
-Download the latest binary for your architecture from [Releases](https://github.com/nicklama/lookin/releases):
+Download the latest binary for your architecture from [Releases](https://github.com/WZBbiao/Lookin/releases):
 
 ```bash
 # Apple Silicon (M1/M2/M3/M4)
-curl -fsSL https://github.com/nicklama/lookin/releases/latest/download/lookin-cli-macos-arm64.tar.gz | tar xz
+curl -fsSL https://github.com/WZBbiao/Lookin/releases/latest/download/lookin-cli-macos-arm64.tar.gz | tar xz
 sudo mv lookin-cli /usr/local/bin/
 
 # Intel
-curl -fsSL https://github.com/nicklama/lookin/releases/latest/download/lookin-cli-macos-x86_64.tar.gz | tar xz
+curl -fsSL https://github.com/WZBbiao/Lookin/releases/latest/download/lookin-cli-macos-x86_64.tar.gz | tar xz
 sudo mv lookin-cli /usr/local/bin/
 ```
 
@@ -37,7 +44,7 @@ sudo mv lookin-cli /usr/local/bin/
 Requires macOS 12.0+ and Swift 5.9+.
 
 ```bash
-git clone https://github.com/nicklama/lookin.git
+git clone https://github.com/WZBbiao/Lookin.git
 cd lookin
 make install    # Builds release and installs to /usr/local/bin
 ```
@@ -456,4 +463,4 @@ Test categories:
 
 ## License
 
-Same as [Lookin](https://github.com/nicklama/lookin) — MIT License.
+Same as [Lookin](https://github.com/WZBbiao/Lookin) — MIT License.

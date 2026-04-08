@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # Lookin CLI installer
-# Usage: curl -fsSL https://raw.githubusercontent.com/nicklama/lookin/Develop/scripts/install.sh | bash
+# Usage: curl -fsSL https://raw.githubusercontent.com/WZBbiao/Lookin/Develop/scripts/install.sh | bash
 
 set -euo pipefail
 
-REPO="nicklama/lookin"
+REPO="WZBbiao/Lookin"
 INSTALL_DIR="${INSTALL_DIR:-/usr/local/bin}"
 TMPDIR="${TMPDIR:-/tmp}"
 
