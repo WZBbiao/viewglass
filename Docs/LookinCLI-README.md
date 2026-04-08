@@ -4,7 +4,13 @@ Lookin CLI (`lookin-cli`) is a programmable command-line interface for [Lookin](
 
 ## Installation
 
-### One-liner (recommended)
+### Homebrew
+
+```bash
+brew install nicklama/tap/lookin-cli
+```
+
+### One-liner
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/nicklama/lookin/Develop/scripts/install.sh | bash
