@@ -18,6 +18,10 @@ public final class LKProtocolClient: @unchecked Sendable {
         try await ping()
     }
 
+    deinit {
+        connection?.disconnect()
+    }
+
     public func disconnect() {
         connection?.disconnect()
         connection = nil
@@ -91,7 +95,11 @@ public final class LKProtocolClient: @unchecked Sendable {
     }
 
     /// Submit an attribute modification.
+    /// Uses fire-and-forget: sends the request and reads the response, then disconnects
+    /// cleanly to avoid leaving stale push data in the TCP buffer.
     public func submitModification(_ modification: LookinAttributeModification) async throws {
+        guard let connection else { throw LookinCoreError.sessionNotConnected }
+
         let response = try await sendRequest(type: LookinRequestTypeInbuiltAttrModification, data: modification)
         if let error = response.error {
             throw LookinCoreError.attributeModificationFailed(
@@ -99,6 +107,11 @@ public final class LKProtocolClient: @unchecked Sendable {
                 reason: error.localizedDescription
             )
         }
+
+        // After a modification, the server sends push frames with display item updates.
+        // We must drain them to keep the connection clean for the next request.
+        // Use a short socket timeout to read until no more data arrives.
+        connection.drainPendingData(timeoutMs: 2000)
     }
 
     /// Fetch all selector names for a class.
@@ -154,6 +167,9 @@ public final class LKProtocolClient: @unchecked Sendable {
 
     // MARK: - Internal
 
+    /// Send a request and handle multi-frame responses.
+    /// The Lookin protocol may split large responses into multiple frames,
+    /// indicated by dataTotalCount > 0 in the response attachment.
     private func sendRequest(type: UInt32, data: NSObject?) async throws -> LookinConnectionResponseAttachment {
         guard let connection else {
             throw LookinCoreError.sessionNotConnected
@@ -171,32 +187,54 @@ public final class LKProtocolClient: @unchecked Sendable {
         }
 
         let tag = nextTag()
-        let responseFrame = try await connection.sendRequest(type: type, tag: tag, payload: payload)
+        let firstFrame = try await connection.sendRequest(type: type, tag: tag, payload: payload)
 
-        // Deserialize the response
-        let responseAttachment: LookinConnectionResponseAttachment
+        // Deserialize the first response
+        let firstAttachment = try deserializeResponse(firstFrame.payload)
+
+        // Check for errors immediately
+        if let error = firstAttachment.error {
+            throw LookinCoreError.protocolError(reason: error.localizedDescription)
+        }
+        if firstAttachment.appIsInBackground {
+            throw LookinCoreError.appInBackground
+        }
+
+        // Handle multi-frame responses
+        // If dataTotalCount > 0, the server will send more frames with the same tag
+        if firstAttachment.dataTotalCount > 0 {
+            var receivedCount = firstAttachment.currentDataCount
+            let totalCount = firstAttachment.dataTotalCount
+
+            // Read remaining frames until we have all responses
+            while receivedCount < totalCount {
+                let nextFrame = try await connection.receiveFrame()
+                let nextAttachment = try deserializeResponse(nextFrame.payload)
+                receivedCount += nextAttachment.currentDataCount
+
+                // Check for errors in subsequent frames
+                if let error = nextAttachment.error {
+                    throw LookinCoreError.protocolError(reason: error.localizedDescription)
+                }
+            }
+        }
+
+        return firstAttachment
+    }
+
+    private func deserializeResponse(_ data: Data) throws -> LookinConnectionResponseAttachment {
         do {
             guard let obj = try NSKeyedUnarchiver.unarchivedObject(
                 ofClass: LookinConnectionResponseAttachment.self,
-                from: responseFrame.payload
+                from: data
             ) else {
                 throw LookinCoreError.protocolError(reason: "Failed to deserialize response")
             }
-            responseAttachment = obj
+            return obj
         } catch let error as LookinCoreError {
             throw error
         } catch {
             throw LookinCoreError.protocolError(reason: "Deserialization failed: \(error.localizedDescription)")
         }
-
-        // Check for errors
-        if let error = responseAttachment.error {
-            throw LookinCoreError.protocolError(reason: error.localizedDescription)
-        }
-        if responseAttachment.appIsInBackground {
-            throw LookinCoreError.appInBackground
-        }
-
-        return responseAttachment
     }
 }

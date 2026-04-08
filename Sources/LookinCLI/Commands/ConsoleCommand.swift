@@ -30,6 +30,7 @@ struct ConsoleEval: AsyncParsableCommand {
 
     mutating func run() async throws {
         let services = ServiceContainer.makeLive()
+        defer { services.shutdown() }
         do {
             let result = try await services.mutation.invokeMethod(
                 nodeOid: nodeId,

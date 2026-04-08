@@ -130,6 +130,15 @@ public final class LiveSessionService: SessionServiceProtocol, @unchecked Sendab
         return client
     }
 
+    /// Disconnect all clients gracefully. Must be called before process exit.
+    public func disconnectAll() {
+        for (_, client) in clients {
+            client.disconnect()
+        }
+        clients.removeAll()
+        activeClient = nil
+    }
+
     /// Resolve session ID: use provided value, or fall back to persisted session.
     public func resolveSessionId(_ provided: String?) throws -> String {
         if let provided, !provided.isEmpty {

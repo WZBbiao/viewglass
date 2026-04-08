@@ -50,7 +50,7 @@ public final class ServiceContainer: @unchecked Sendable {
             hierarchy: hierarchy,
             nodeQuery: LiveNodeQueryService(sessionService: session, hierarchyService: hierarchy),
             screenshot: LiveScreenshotService(sessionService: session, hierarchyService: hierarchy),
-            mutation: LiveMutationService(sessionService: session, hierarchyService: hierarchy),
+            mutation: LiveMutationService(sessionService: session),
             export: MockExportService(),
             diagnostics: DiagnosticsService()
         )
@@ -59,5 +59,13 @@ public final class ServiceContainer: @unchecked Sendable {
     /// Create a service container based on mode flag.
     public static func make(live: Bool) -> ServiceContainer {
         live ? makeLive() : makeMock()
+    }
+
+    /// Gracefully shut down all live connections.
+    /// Must be called before CLI process exits to ensure clean TCP close.
+    public func shutdown() {
+        if let liveSession = session as? LiveSessionService {
+            liveSession.disconnectAll()
+        }
     }
 }

@@ -2,13 +2,12 @@ import Foundation
 import LookinSharedBridge
 
 /// Live mutation service that sends real modifications to iOS apps.
+/// Ensures hierarchy is fetched first to register OID mappings with the server.
 public final class LiveMutationService: MutationServiceProtocol, @unchecked Sendable {
     private let sessionService: LiveSessionService
-    private let hierarchyService: LiveHierarchyService
 
-    public init(sessionService: LiveSessionService, hierarchyService: LiveHierarchyService) {
+    public init(sessionService: LiveSessionService) {
         self.sessionService = sessionService
-        self.hierarchyService = hierarchyService
     }
 
     public func setAttribute(
@@ -33,18 +32,15 @@ public final class LiveMutationService: MutationServiceProtocol, @unchecked Send
             )
         }
 
-        // Look up the node to get the correct viewOid/layerOid
-        let snapshot = try await hierarchyService.fetchHierarchy(sessionId: sessionId)
-        guard let node = snapshot.findNode(oid: nodeOid) else {
-            throw LookinCoreError.nodeNotFound(oid: nodeOid)
-        }
+        // Fetch hierarchy to register OID mappings with the server.
+        let hierarchy = try await client.fetchHierarchy()
 
-        let targetOid: UInt
-        if mapping.targetIsLayer {
-            targetOid = node.layerOid ?? node.oid
-        } else {
-            targetOid = node.viewOid ?? node.oid
-        }
+        // Find the target OID from the hierarchy
+        let targetOid = findTargetOid(
+            nodeOid: nodeOid,
+            isLayerProperty: mapping.targetIsLayer,
+            hierarchy: hierarchy
+        )
 
         let modification = LookinAttributeModification()
         modification.targetOid = targetOid
@@ -72,20 +68,54 @@ public final class LiveMutationService: MutationServiceProtocol, @unchecked Send
     ) async throws -> LKConsoleResult {
         let client = try await sessionService.getClient(for: sessionId)
 
-        // Look up the node to get the viewOid for method invocation
-        let snapshot = try await hierarchyService.fetchHierarchy(sessionId: sessionId)
-        let node = snapshot.findNode(oid: nodeOid)
-        let targetOid = node?.viewOid ?? nodeOid
+        // Fetch hierarchy to register OID mappings
+        let hierarchy = try await client.fetchHierarchy()
+
+        // Find viewOid for method invocation
+        let targetOid = findViewOid(nodeOid: nodeOid, hierarchy: hierarchy)
 
         let (description, _) = try await client.invokeMethod(oid: targetOid, selector: selector)
 
         return LKConsoleResult(
             expression: selector,
             targetOid: nodeOid,
-            targetClass: node?.className ?? "UIView",
+            targetClass: "UIView",
             returnValue: description,
             returnType: description == nil ? .void_ : .string,
             success: true
         )
+    }
+
+    /// Find the correct target OID from the hierarchy.
+    /// The hierarchy reports nodes by layer OID. For view properties, we need the view OID.
+    private func findTargetOid(nodeOid: UInt, isLayerProperty: Bool, hierarchy: LookinHierarchyInfo) -> UInt {
+        guard let items = hierarchy.displayItems else { return nodeOid }
+        if let item = findItem(oid: nodeOid, in: items) {
+            if isLayerProperty {
+                return item.layerObject?.oid ?? nodeOid
+            } else {
+                return item.viewObject?.oid ?? nodeOid
+            }
+        }
+        return nodeOid
+    }
+
+    private func findViewOid(nodeOid: UInt, hierarchy: LookinHierarchyInfo) -> UInt {
+        guard let items = hierarchy.displayItems else { return nodeOid }
+        if let item = findItem(oid: nodeOid, in: items) {
+            return item.viewObject?.oid ?? nodeOid
+        }
+        return nodeOid
+    }
+
+    private func findItem(oid: UInt, in items: [LookinDisplayItem]) -> LookinDisplayItem? {
+        for item in items {
+            let itemOid = item.layerObject?.oid ?? item.viewObject?.oid ?? 0
+            if itemOid == oid { return item }
+            if let found = findItem(oid: oid, in: item.subitems ?? []) {
+                return found
+            }
+        }
+        return nil
     }
 }

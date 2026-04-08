@@ -97,6 +97,7 @@ struct AttrSet: AsyncParsableCommand {
             throw ExitCode(50)
         }
 
+        defer { services.shutdown() }
         do {
             let result = try await services.mutation.setAttribute(
                 nodeOid: nodeId,
