@@ -95,6 +95,23 @@ public final class MockMutationService: MutationServiceProtocol, @unchecked Send
         )
     }
 
+    public func triggerDismiss(
+        nodeOid: UInt,
+        sessionId: String
+    ) async throws -> LKActionResult {
+        if shouldFail {
+            throw LookinCoreError.actionFailed(action: "dismiss", reason: "Mock failure")
+        }
+        return LKActionResult(
+            action: "dismiss",
+            nodeOid: nodeOid,
+            targetClass: "UIViewController",
+            mode: .semantic,
+            success: true,
+            detail: "Dismissed UIViewController"
+        )
+    }
+
     public func inspectGestures(
         nodeOid: UInt,
         sessionId: String

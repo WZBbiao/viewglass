@@ -154,6 +154,14 @@ final class CLICommandTests: XCTestCase {
         XCTAssertEqual(result.mode, .semantic)
     }
 
+    func testDismissFlow() async throws {
+        let services = ServiceContainer.makeMock()
+        let result = try await services.mutation.triggerDismiss(nodeOid: 994, sessionId: "test")
+        XCTAssertTrue(result.success)
+        XCTAssertEqual(result.action, "dismiss")
+        XCTAssertEqual(result.mode, .semantic)
+    }
+
     // Test refresh flow
     func testRefreshFlow() async throws {
         let services = ServiceContainer.makeMock()

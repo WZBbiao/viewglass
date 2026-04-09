@@ -29,6 +29,21 @@ final class LiveMutationServicePreflightTests: XCTestCase {
         XCTAssertEqual(target.classChain, ["CALayer", "NSObject"])
     }
 
+    func testResolveTargetMetadataUsesHostViewControllerObjectWhenOIDMatchesController() throws {
+        let service = LiveMutationService(sessionService: LiveSessionService(store: SessionStore(directory: tempDir())))
+        let hierarchy = makeHierarchy(
+            viewClassChain: ["_UIAlertControllerPhoneTVMacView", "UIView", "NSObject"],
+            hostControllerOid: 994,
+            hostControllerClassChain: ["UIAlertController", "UIViewController", "UIResponder", "NSObject"]
+        )
+
+        let target = try service.resolveTargetMetadata(nodeOid: 994, isLayerProperty: false, hierarchy: hierarchy)
+
+        XCTAssertEqual(target.objectOid, 994)
+        XCTAssertEqual(target.className, "UIAlertController")
+        XCTAssertEqual(target.classChain, ["UIAlertController", "UIViewController", "UIResponder", "NSObject"])
+    }
+
     func testEnsureClassChainAcceptsSubclassMatch() throws {
         let service = LiveMutationService(sessionService: LiveSessionService(store: SessionStore(directory: tempDir())))
 
@@ -69,7 +84,9 @@ final class LiveMutationServicePreflightTests: XCTestCase {
     private func makeHierarchy(
         viewClassChain: [String],
         layerOid: UInt = 42,
-        layerClassChain: [String]? = nil
+        layerClassChain: [String]? = nil,
+        hostControllerOid: UInt? = nil,
+        hostControllerClassChain: [String]? = nil
     ) -> LookinHierarchyInfo {
         let viewObject = LookinObject()
         viewObject.oid = 42
@@ -83,6 +100,12 @@ final class LiveMutationServicePreflightTests: XCTestCase {
             layerObject.classChainList = layerClassChain
             return layerObject
         }()
+        if let hostControllerOid {
+            let controllerObject = LookinObject()
+            controllerObject.oid = hostControllerOid
+            controllerObject.classChainList = hostControllerClassChain
+            item.hostViewControllerObject = controllerObject
+        }
 
         let hierarchy = LookinHierarchyInfo()
         hierarchy.displayItems = [item]

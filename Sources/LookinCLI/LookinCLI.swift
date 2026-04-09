@@ -17,6 +17,7 @@ struct LookinCLI: AsyncParsableCommand {
             GestureCommand.self,
             TapCommand.self,
             LongPressCommand.self,
+            DismissCommand.self,
             ScrollCommand.self,
             ControlCommand.self,
             ScreenshotCommand.self,

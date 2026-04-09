@@ -250,6 +250,35 @@ public final class LiveMutationService: MutationServiceProtocol, @unchecked Send
         throw lastError ?? LookinCoreError.actionFailed(action: "long-press", reason: "Unknown semantic long press failure")
     }
 
+    public func triggerDismiss(
+        nodeOid: UInt,
+        sessionId: String
+    ) async throws -> LKActionResult {
+        let client = try await sessionService.getClient(for: sessionId)
+        let hierarchy = try await client.fetchHierarchy()
+        let target = try resolveTargetMetadata(
+            nodeOid: nodeOid,
+            isLayerProperty: false,
+            hierarchy: hierarchy
+        )
+        try ensureClassChain(
+            target.classChain,
+            contains: "UIViewController",
+            action: "dismiss",
+            targetClass: target.className
+        )
+
+        let detail = try await client.triggerSemanticDismiss(oid: target.objectOid)
+        return LKActionResult(
+            action: "dismiss",
+            nodeOid: nodeOid,
+            targetClass: target.className,
+            mode: .semantic,
+            success: true,
+            detail: detail ?? "Dismissed \(target.className)"
+        )
+    }
+
     public func inspectGestures(
         nodeOid: UInt,
         sessionId: String
@@ -278,24 +307,14 @@ public final class LiveMutationService: MutationServiceProtocol, @unchecked Send
         hierarchy: LookinHierarchyInfo
     ) throws -> TargetMetadata {
         guard let items = hierarchy.displayItems,
-              let item = findItem(oid: nodeOid, in: items) else {
+              let target = findTarget(oid: nodeOid, isLayerProperty: isLayerProperty, in: items) else {
             throw LookinCoreError.nodeNotFound(oid: nodeOid)
         }
-
-        let object = isLayerProperty ? (item.layerObject ?? item.viewObject) : (item.viewObject ?? item.layerObject)
-        guard let object else {
-            throw LookinCoreError.actionFailed(
-                action: "resolve-target",
-                reason: "Unable to locate runtime object for node \(nodeOid)"
-            )
-        }
-
-        let className = object.rawClassName() ?? "NSObject"
         return TargetMetadata(
             nodeOid: nodeOid,
-            objectOid: UInt(object.oid),
-            className: className,
-            classChain: object.classChainList ?? [className]
+            objectOid: target.objectOid,
+            className: target.className,
+            classChain: target.classChain
         )
     }
 
@@ -336,12 +355,55 @@ public final class LiveMutationService: MutationServiceProtocol, @unchecked Send
         return reason.localizedCaseInsensitiveContains("connection closed")
     }
 
-    private func findItem(oid: UInt, in items: [LookinDisplayItem]) -> LookinDisplayItem? {
+    private func findTarget(
+        oid: UInt,
+        isLayerProperty: Bool,
+        in items: [LookinDisplayItem]
+    ) -> (objectOid: UInt, className: String, classChain: [String])? {
         for item in items {
-            if UInt(item.layerObject?.oid ?? 0) == oid || UInt(item.viewObject?.oid ?? 0) == oid {
-                return item
+            if !isLayerProperty,
+               let controller = item.hostViewControllerObject,
+               UInt(controller.oid) == oid {
+                let className = controller.rawClassName() ?? "UIViewController"
+                return (
+                    objectOid: UInt(controller.oid),
+                    className: className,
+                    classChain: controller.classChainList ?? [className]
+                )
             }
-            if let found = findItem(oid: oid, in: item.subitems ?? []) {
+
+            if isLayerProperty,
+               let layer = item.layerObject,
+               UInt(layer.oid) == oid {
+                let className = layer.rawClassName() ?? "CALayer"
+                return (
+                    objectOid: UInt(layer.oid),
+                    className: className,
+                    classChain: layer.classChainList ?? [className]
+                )
+            }
+
+            if let view = item.viewObject, UInt(view.oid) == oid {
+                let className = view.rawClassName() ?? "UIView"
+                return (
+                    objectOid: UInt(view.oid),
+                    className: className,
+                    classChain: view.classChainList ?? [className]
+                )
+            }
+
+            if !isLayerProperty,
+               let layer = item.layerObject,
+               UInt(layer.oid) == oid {
+                let className = layer.rawClassName() ?? "CALayer"
+                return (
+                    objectOid: UInt(layer.oid),
+                    className: className,
+                    classChain: layer.classChainList ?? [className]
+                )
+            }
+
+            if let found = findTarget(oid: oid, isLayerProperty: isLayerProperty, in: item.subitems ?? []) {
                 return found
             }
         }

@@ -29,6 +29,11 @@ public protocol MutationServiceProtocol: Sendable {
         sessionId: String
     ) async throws -> LKActionResult
 
+    func triggerDismiss(
+        nodeOid: UInt,
+        sessionId: String
+    ) async throws -> LKActionResult
+
     func inspectGestures(
         nodeOid: UInt,
         sessionId: String

@@ -29,7 +29,7 @@ public struct LKHierarchySnapshot: Codable, Equatable, Sendable {
     }
 
     public func findNode(oid: UInt) -> LKNode? {
-        flatNodes.first { $0.oid == oid }
+        flatNodes.first { $0.oid == oid || $0.hostViewControllerOid == oid }
     }
 
     public func findNodes(className: String) -> [LKNode] {
