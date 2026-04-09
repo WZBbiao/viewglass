@@ -12,6 +12,7 @@ struct LookinCLI: AsyncParsableCommand {
             SessionCommand.self,
             HierarchyCommand.self,
             NodeCommand.self,
+            LocateCommand.self,
             QueryCommand.self,
             InvokeCommand.self,
             GestureCommand.self,

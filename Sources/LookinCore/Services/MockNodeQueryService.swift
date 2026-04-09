@@ -4,6 +4,7 @@ public final class MockNodeQueryService: NodeQueryServiceProtocol, @unchecked Se
     public var mockHierarchy: LKHierarchySnapshot?
     public var selectedOid: UInt?
     public var shouldFail = false
+    private let resolver = LKTargetResolver()
 
     public init() {
         mockHierarchy = MockHierarchyService.makeSampleSnapshot()
@@ -26,12 +27,15 @@ public final class MockNodeQueryService: NodeQueryServiceProtocol, @unchecked Se
     }
 
     public func queryNodes(expression: String, sessionId: String) async throws -> [LKNode] {
+        try await resolve(locator: .parse(expression), sessionId: sessionId).matches.map(\.node)
+    }
+
+    public func resolve(locator: LKLocator, sessionId: String) async throws -> LKResolvedTarget {
         if shouldFail { throw LookinCoreError.sessionNotConnected }
         guard let hierarchy = mockHierarchy else {
             throw LookinCoreError.sessionNotConnected
         }
-        let engine = LKQueryEngine()
-        return try engine.execute(expression: expression, on: hierarchy)
+        return try resolver.resolve(locator: locator, in: hierarchy)
     }
 
     public func selectNode(oid: UInt, sessionId: String) async throws -> LKNode {

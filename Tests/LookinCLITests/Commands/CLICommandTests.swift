@@ -85,6 +85,13 @@ final class CLICommandTests: XCTestCase {
         XCTAssertEqual(nodes.count, 2)
     }
 
+    func testLocateFlow() async throws {
+        let services = ServiceContainer.makeMock()
+        let resolved = try await services.nodeQuery.resolve(locator: .parse("UILabel"), sessionId: "test")
+        XCTAssertEqual(resolved.matches.count, 2)
+        XCTAssertNil(resolved.selectedTarget)
+    }
+
     // Test select flow
     func testSelectFlow() async throws {
         let services = ServiceContainer.makeMock()

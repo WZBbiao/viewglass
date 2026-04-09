@@ -1,6 +1,7 @@
 import Foundation
 
 public struct LKHierarchySnapshot: Codable, Equatable, Sendable {
+    public let snapshotId: String
     public let appInfo: LKAppDescriptor
     public let windows: [LKNodeTree]
     public let fetchedAt: Date
@@ -9,6 +10,7 @@ public struct LKHierarchySnapshot: Codable, Equatable, Sendable {
     public let screenSize: LKRect
 
     public init(
+        snapshotId: String = UUID().uuidString,
         appInfo: LKAppDescriptor,
         windows: [LKNodeTree],
         fetchedAt: Date = Date(),
@@ -16,6 +18,7 @@ public struct LKHierarchySnapshot: Codable, Equatable, Sendable {
         screenScale: Double = 2.0,
         screenSize: LKRect = LKRect(x: 0, y: 0, width: 390, height: 844)
     ) {
+        self.snapshotId = snapshotId
         self.appInfo = appInfo
         self.windows = windows
         self.fetchedAt = fetchedAt
@@ -44,6 +47,27 @@ public struct LKHierarchySnapshot: Codable, Equatable, Sendable {
 
     public var totalNodeCount: Int {
         flatNodes.count
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case snapshotId
+        case appInfo
+        case windows
+        case fetchedAt
+        case serverVersion
+        case screenScale
+        case screenSize
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.snapshotId = try container.decodeIfPresent(String.self, forKey: .snapshotId) ?? UUID().uuidString
+        self.appInfo = try container.decode(LKAppDescriptor.self, forKey: .appInfo)
+        self.windows = try container.decode([LKNodeTree].self, forKey: .windows)
+        self.fetchedAt = try container.decode(Date.self, forKey: .fetchedAt)
+        self.serverVersion = try container.decodeIfPresent(String.self, forKey: .serverVersion)
+        self.screenScale = try container.decodeIfPresent(Double.self, forKey: .screenScale) ?? 2.0
+        self.screenSize = try container.decodeIfPresent(LKRect.self, forKey: .screenSize) ?? LKRect(x: 0, y: 0, width: 390, height: 844)
     }
 }
 

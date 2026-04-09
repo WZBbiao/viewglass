@@ -6,6 +6,7 @@ public final class LiveNodeQueryService: NodeQueryServiceProtocol, @unchecked Se
     private let sessionService: LiveSessionService
     private let hierarchyService: LiveHierarchyService
     private var cachedSnapshot: LKHierarchySnapshot?
+    private let resolver = LKTargetResolver()
 
     public init(sessionService: LiveSessionService, hierarchyService: LiveHierarchyService) {
         self.sessionService = sessionService
@@ -38,15 +39,12 @@ public final class LiveNodeQueryService: NodeQueryServiceProtocol, @unchecked Se
     }
 
     public func queryNodes(expression: String, sessionId: String) async throws -> [LKNode] {
-        // Validate syntax before network request to give clear error on malformed input
-        let trimmed = expression.trimmingCharacters(in: .whitespaces)
-        guard !trimmed.isEmpty else {
-            throw LookinCoreError.querySyntaxError(expression: expression, reason: "Empty expression")
-        }
+        try await resolve(locator: .parse(expression), sessionId: sessionId).matches.map(\.node)
+    }
 
+    public func resolve(locator: LKLocator, sessionId: String) async throws -> LKResolvedTarget {
         let snapshot = try await getSnapshot(sessionId: sessionId)
-        let engine = LKQueryEngine()
-        return try engine.execute(expression: expression, on: snapshot)
+        return try resolver.resolve(locator: locator, in: snapshot)
     }
 
     public func selectNode(oid: UInt, sessionId: String) async throws -> LKNode {
