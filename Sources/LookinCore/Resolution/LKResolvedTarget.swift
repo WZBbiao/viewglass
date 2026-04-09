@@ -10,12 +10,33 @@ public struct LKCapability: Codable, Equatable, Sendable {
     }
 }
 
+public struct LKResolvedObjectTargets: Codable, Equatable, Sendable {
+    public let inspectOid: UInt
+    public let actionOid: UInt
+    public let captureOid: UInt
+    public let controllerOid: UInt?
+
+    public init(
+        inspectOid: UInt,
+        actionOid: UInt,
+        captureOid: UInt,
+        controllerOid: UInt?
+    ) {
+        self.inspectOid = inspectOid
+        self.actionOid = actionOid
+        self.captureOid = captureOid
+        self.controllerOid = controllerOid
+    }
+}
+
 public struct LKResolvedMatch: Codable, Equatable, Sendable {
     public let node: LKNode
+    public let targets: LKResolvedObjectTargets
     public let capabilities: [String: LKCapability]
 
-    public init(node: LKNode, capabilities: [String: LKCapability]) {
+    public init(node: LKNode, targets: LKResolvedObjectTargets, capabilities: [String: LKCapability]) {
         self.node = node
+        self.targets = targets
         self.capabilities = capabilities
     }
 }

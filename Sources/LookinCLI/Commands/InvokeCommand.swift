@@ -32,7 +32,7 @@ struct InvokeCommand: AsyncParsableCommand {
                 action: "invoke"
             )
             let result = try await services.mutation.invokeMethod(
-                nodeOid: resolved.node.hostViewControllerOid ?? resolved.node.primaryOid,
+                nodeOid: resolved.targets.controllerOid ?? resolved.targets.actionOid,
                 selector: selector,
                 sessionId: sessionId
             )

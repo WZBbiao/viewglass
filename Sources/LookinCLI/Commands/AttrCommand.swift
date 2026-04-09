@@ -37,7 +37,7 @@ struct AttrGet: AsyncParsableCommand {
                 capability: "inspect"
             )
             let node = resolved.node
-            let groups = try await services.nodeQuery.getAttributes(oid: node.oid, sessionId: sessionId)
+            let groups = try await services.nodeQuery.getAttributes(oid: resolved.targets.inspectOid, sessionId: sessionId)
             if json {
                 JSONOutput.print(NodeAttributes(
                     oid: node.oid,
@@ -117,7 +117,7 @@ struct AttrSet: AsyncParsableCommand {
                 action: "attr-set"
             )
             let result = try await services.mutation.setAttribute(
-                nodeOid: resolved.node.oid,
+                nodeOid: resolved.targets.actionOid,
                 key: key,
                 value: value,
                 sessionId: sessionId

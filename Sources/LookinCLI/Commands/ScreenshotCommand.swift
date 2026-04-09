@@ -82,7 +82,7 @@ struct ScreenshotNode: AsyncParsableCommand {
                 capability: "capture"
             )
             let ref = try await services.screenshot.captureNode(
-                oid: resolved.node.primaryOid,
+                oid: resolved.targets.captureOid,
                 sessionId: sessionId,
                 outputPath: output,
                 preferredDeviceIdentifier: udid

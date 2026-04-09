@@ -29,7 +29,7 @@ struct DismissCommand: AsyncParsableCommand {
                 action: "dismiss",
                 capability: "dismiss"
             )
-            let targetOid = resolved.node.hostViewControllerOid ?? resolved.node.primaryOid
+            let targetOid = resolved.targets.controllerOid ?? resolved.targets.actionOid
             let result = try await services.mutation.triggerDismiss(nodeOid: targetOid, sessionId: sessionId)
             OutputFormatter.printAction(result, mode: json ? .json : .human)
         } catch let error as LookinCoreError {

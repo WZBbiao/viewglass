@@ -51,7 +51,7 @@ struct TapCommand: AsyncParsableCommand {
         )
         switch mode {
         case .semantic, .auto:
-            return try await services.mutation.triggerTap(nodeOid: resolved.node.oid, sessionId: sessionId)
+            return try await services.mutation.triggerTap(nodeOid: resolved.targets.actionOid, sessionId: sessionId)
         case .physical:
             throw unsupportedPhysicalAction("tap")
         }

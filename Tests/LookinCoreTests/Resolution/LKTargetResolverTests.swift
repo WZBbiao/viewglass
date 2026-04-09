@@ -20,6 +20,10 @@ final class LKTargetResolverTests: XCTestCase {
         XCTAssertEqual(resolved.matches.count, 1)
         XCTAssertEqual(resolved.selectedTarget?.node.className, "UIButton")
         XCTAssertEqual(resolved.selectedTarget?.node.primaryOid, 4)
+        XCTAssertEqual(resolved.selectedTarget?.targets.inspectOid, 4)
+        XCTAssertEqual(resolved.selectedTarget?.targets.actionOid, 4)
+        XCTAssertEqual(resolved.selectedTarget?.targets.captureOid, 4)
+        XCTAssertNil(resolved.selectedTarget?.targets.controllerOid)
     }
 
     func testResolveClassQueryReturnsDiscoveryMatchesWithoutSelection() throws {
@@ -66,6 +70,10 @@ final class LKTargetResolverTests: XCTestCase {
 
         XCTAssertEqual(resolved.matches.count, 1)
         XCTAssertEqual(resolved.selectedTarget?.node.hostViewControllerOid, 99)
+        XCTAssertEqual(resolved.selectedTarget?.targets.inspectOid, 10)
+        XCTAssertEqual(resolved.selectedTarget?.targets.actionOid, 11)
+        XCTAssertEqual(resolved.selectedTarget?.targets.captureOid, 10)
+        XCTAssertEqual(resolved.selectedTarget?.targets.controllerOid, 99)
         XCTAssertEqual(resolved.selectedTarget?.capabilities["dismiss"]?.supported, true)
     }
 }

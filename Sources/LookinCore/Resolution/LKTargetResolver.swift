@@ -8,7 +8,11 @@ public final class LKTargetResolver: Sendable {
     public func resolve(locator: LKLocator, in snapshot: LKHierarchySnapshot) throws -> LKResolvedTarget {
         let nodes = try matchedNodes(for: locator, in: snapshot)
         let matches = nodes.map { node in
-            LKResolvedMatch(node: node, capabilities: capabilities(for: node))
+            LKResolvedMatch(
+                node: node,
+                targets: targets(for: node),
+                capabilities: capabilities(for: node)
+            )
         }
         let selectedTarget = matches.count == 1 ? matches[0] : nil
         return LKResolvedTarget(
@@ -41,6 +45,20 @@ public final class LKTargetResolver: Sendable {
         case .query:
             return try queryEngine.execute(expression: locator.value, on: snapshot)
         }
+    }
+
+    private func targets(for node: LKNode) -> LKResolvedObjectTargets {
+        let inspectOid = node.layerOid ?? node.viewOid ?? node.primaryOid
+        let actionOid = node.viewOid ?? node.hostViewControllerOid ?? node.primaryOid
+        let captureOid = node.layerOid ?? node.viewOid ?? node.primaryOid
+        let controllerOid = node.hostViewControllerOid
+
+        return LKResolvedObjectTargets(
+            inspectOid: inspectOid,
+            actionOid: actionOid,
+            captureOid: captureOid,
+            controllerOid: controllerOid
+        )
     }
 
     private func capabilities(for node: LKNode) -> [String: LKCapability] {

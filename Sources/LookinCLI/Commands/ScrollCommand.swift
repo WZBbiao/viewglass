@@ -27,7 +27,7 @@ struct ScrollCommand: AsyncParsableCommand {
     var json = false
 
     mutating func run() async throws {
-            let services = ServiceContainer.makeLive()
+        let services = ServiceContainer.makeLive()
         defer { services.shutdown() }
 
         do {
@@ -41,41 +41,17 @@ struct ScrollCommand: AsyncParsableCommand {
             )
             let baseNode = resolved.node
             let needsAttributes = by != nil
-            let groups = needsAttributes ? try await services.nodeQuery.getAttributes(oid: baseNode.oid, sessionId: sessionId) : []
-            let node = LKNode(
-                oid: baseNode.oid,
-                primaryOid: baseNode.primaryOid,
-                oidType: baseNode.oidType,
-                viewOid: baseNode.viewOid,
-                layerOid: baseNode.layerOid,
-                className: baseNode.className,
-                address: baseNode.address,
-                frame: baseNode.frame,
-                bounds: baseNode.bounds,
-                isHidden: baseNode.isHidden,
-                alpha: baseNode.alpha,
-                isUserInteractionEnabled: baseNode.isUserInteractionEnabled,
-                backgroundColor: baseNode.backgroundColor,
-                tag: baseNode.tag,
-                accessibilityLabel: baseNode.accessibilityLabel,
-                accessibilityIdentifier: baseNode.accessibilityIdentifier,
-                hostViewControllerClassName: baseNode.hostViewControllerClassName,
-                hostViewControllerOid: baseNode.hostViewControllerOid,
-                layerClassName: baseNode.layerClassName,
-                clipsToBounds: baseNode.clipsToBounds,
-                isOpaque: baseNode.isOpaque,
-                contentMode: baseNode.contentMode,
-                customDisplayTitle: baseNode.customDisplayTitle,
-                depth: baseNode.depth,
-                parentOid: baseNode.parentOid,
-                childrenOids: baseNode.childrenOids,
-                attributeGroups: groups
-            )
+            let groups = needsAttributes
+                ? try await services.nodeQuery.getAttributes(oid: resolved.targets.inspectOid, sessionId: sessionId)
+                : []
+            let node = rehydratedNode(baseNode, attributeGroups: groups)
             let resolvedOffset = try resolveTargetOffset(for: node)
             let result = try await runScroll(
                 services: services,
                 sessionId: sessionId,
                 node: node,
+                actionOid: resolved.targets.actionOid,
+                inspectOid: resolved.targets.inspectOid,
                 targetOffset: resolvedOffset
             )
             OutputFormatter.printAction(result, mode: json ? .json : .human)
@@ -129,15 +105,31 @@ struct ScrollCommand: AsyncParsableCommand {
         services: ServiceContainer,
         sessionId: String,
         node: LKNode,
+        actionOid: UInt,
+        inspectOid: UInt,
         targetOffset: CGPoint
     ) async throws -> LKActionResult {
         switch mode {
         case .semantic:
-            return try await semanticScroll(services: services, sessionId: sessionId, node: node, targetOffset: targetOffset)
+            return try await semanticScroll(
+                services: services,
+                sessionId: sessionId,
+                node: node,
+                actionOid: actionOid,
+                inspectOid: inspectOid,
+                targetOffset: targetOffset
+            )
         case .physical:
             throw unsupportedPhysicalAction("scroll")
         case .auto:
-            return try await semanticScroll(services: services, sessionId: sessionId, node: node, targetOffset: targetOffset)
+            return try await semanticScroll(
+                services: services,
+                sessionId: sessionId,
+                node: node,
+                actionOid: actionOid,
+                inspectOid: inspectOid,
+                targetOffset: targetOffset
+            )
         }
     }
 
@@ -145,45 +137,19 @@ struct ScrollCommand: AsyncParsableCommand {
         services: ServiceContainer,
         sessionId: String,
         node: LKNode,
+        actionOid: UInt,
+        inspectOid: UInt,
         targetOffset: CGPoint
     ) async throws -> LKActionResult {
         let value = formatCGPoint(targetOffset)
         _ = try await services.mutation.setAttribute(
-            nodeOid: node.oid,
+            nodeOid: actionOid,
             key: "contentOffset",
             value: value,
             sessionId: sessionId
         )
-        let refreshedGroups = try await services.nodeQuery.getAttributes(oid: node.oid, sessionId: sessionId)
-        let refreshedNode = LKNode(
-            oid: node.oid,
-            primaryOid: node.primaryOid,
-            oidType: node.oidType,
-            viewOid: node.viewOid,
-            layerOid: node.layerOid,
-            className: node.className,
-            address: node.address,
-            frame: node.frame,
-            bounds: node.bounds,
-            isHidden: node.isHidden,
-            alpha: node.alpha,
-            isUserInteractionEnabled: node.isUserInteractionEnabled,
-            backgroundColor: node.backgroundColor,
-            tag: node.tag,
-            accessibilityLabel: node.accessibilityLabel,
-            accessibilityIdentifier: node.accessibilityIdentifier,
-            hostViewControllerClassName: node.hostViewControllerClassName,
-            hostViewControllerOid: node.hostViewControllerOid,
-            layerClassName: node.layerClassName,
-            clipsToBounds: node.clipsToBounds,
-            isOpaque: node.isOpaque,
-            contentMode: node.contentMode,
-            customDisplayTitle: node.customDisplayTitle,
-            depth: node.depth,
-            parentOid: node.parentOid,
-            childrenOids: node.childrenOids,
-            attributeGroups: refreshedGroups
-        )
+        let refreshedGroups = try await services.nodeQuery.getAttributes(oid: inspectOid, sessionId: sessionId)
+        let refreshedNode = rehydratedNode(node, attributeGroups: refreshedGroups)
         let actualOffset = try currentContentOffset(for: refreshedNode)
         guard abs(actualOffset.x - targetOffset.x) < 0.5, abs(actualOffset.y - targetOffset.y) < 0.5 else {
             throw LookinCoreError.actionFailed(
@@ -193,11 +159,43 @@ struct ScrollCommand: AsyncParsableCommand {
         }
         return LKActionResult(
             action: "scroll",
-            nodeOid: node.oid,
+            nodeOid: actionOid,
             targetClass: node.className,
             mode: .semantic,
             success: true,
             detail: "contentOffset -> \(formatCGPoint(actualOffset))"
+        )
+    }
+
+    private func rehydratedNode(_ baseNode: LKNode, attributeGroups: [LKAttributeGroup]) -> LKNode {
+        LKNode(
+            oid: baseNode.oid,
+            primaryOid: baseNode.primaryOid,
+            oidType: baseNode.oidType,
+            viewOid: baseNode.viewOid,
+            layerOid: baseNode.layerOid,
+            className: baseNode.className,
+            address: baseNode.address,
+            frame: baseNode.frame,
+            bounds: baseNode.bounds,
+            isHidden: baseNode.isHidden,
+            alpha: baseNode.alpha,
+            isUserInteractionEnabled: baseNode.isUserInteractionEnabled,
+            backgroundColor: baseNode.backgroundColor,
+            tag: baseNode.tag,
+            accessibilityLabel: baseNode.accessibilityLabel,
+            accessibilityIdentifier: baseNode.accessibilityIdentifier,
+            hostViewControllerClassName: baseNode.hostViewControllerClassName,
+            hostViewControllerOid: baseNode.hostViewControllerOid,
+            layerClassName: baseNode.layerClassName,
+            clipsToBounds: baseNode.clipsToBounds,
+            isOpaque: baseNode.isOpaque,
+            contentMode: baseNode.contentMode,
+            customDisplayTitle: baseNode.customDisplayTitle,
+            depth: baseNode.depth,
+            parentOid: baseNode.parentOid,
+            childrenOids: baseNode.childrenOids,
+            attributeGroups: attributeGroups
         )
     }
 }

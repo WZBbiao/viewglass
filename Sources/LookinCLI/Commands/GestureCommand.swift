@@ -43,7 +43,7 @@ struct GestureListCommand: AsyncParsableCommand {
                 sessionId: sessionId,
                 action: "gesture-inspect"
             )
-            var result = try await services.mutation.inspectGestures(nodeOid: resolved.node.primaryOid, sessionId: sessionId)
+            var result = try await services.mutation.inspectGestures(nodeOid: resolved.targets.actionOid, sessionId: sessionId)
             if !includeRaw {
                 result = LKGestureInspectionResult(
                     nodeOid: result.nodeOid,
