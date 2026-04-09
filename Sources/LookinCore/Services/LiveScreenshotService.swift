@@ -12,34 +12,62 @@ public final class LiveScreenshotService: ScreenshotServiceProtocol, @unchecked 
     }
 
     public func captureScreen(sessionId: String, outputPath: String, preferredDeviceIdentifier: String? = nil) async throws -> LKScreenshotRef {
-        let client = try await sessionService.getClient(for: sessionId)
-        let data = try await client.fetchHighResolutionScreenScreenshot()
-        return try writeScreenshot(
-            data: data,
-            fallbackNodeOid: 0,
-            screenshotType: .screen,
-            outputPath: outputPath
-        )
+        var lastError: Error?
+        for attempt in 0..<2 {
+            do {
+                let client = try await sessionService.getClient(for: sessionId)
+                let data = try await client.fetchHighResolutionScreenScreenshot()
+                return try writeScreenshot(
+                    data: data,
+                    fallbackNodeOid: 0,
+                    screenshotType: .screen,
+                    outputPath: outputPath
+                )
+            } catch {
+                lastError = error
+                guard attempt == 0, shouldRetry(after: error) else {
+                    throw error
+                }
+                sessionService.disconnectAll()
+                try? await Task.sleep(nanoseconds: 400_000_000)
+            }
+        }
+
+        throw lastError ?? LookinCoreError.screenshotFailed(reason: "Unknown screen capture failure")
     }
 
     public func captureNode(oid: UInt, sessionId: String, outputPath: String, preferredDeviceIdentifier: String? = nil) async throws -> LKScreenshotRef {
-        let snapshot = try await hierarchyService.fetchHierarchy(sessionId: sessionId)
-        guard let node = snapshot.findNode(oid: oid) else {
-            throw LookinCoreError.nodeNotFound(oid: oid)
+        var lastError: Error?
+        for attempt in 0..<2 {
+            do {
+                let snapshot = try await hierarchyService.fetchHierarchy(sessionId: sessionId)
+                guard let node = snapshot.findNode(oid: oid) else {
+                    throw LookinCoreError.nodeNotFound(oid: oid)
+                }
+
+                guard let layerOid = node.layerOid ?? node.viewOid else {
+                    throw LookinCoreError.screenshotFailed(reason: "Node \(oid) does not expose a capturable layer")
+                }
+
+                let client = try await sessionService.getClient(for: sessionId)
+                let data = try await client.fetchHighResolutionNodeScreenshot(oid: layerOid)
+                return try writeScreenshot(
+                    data: data,
+                    fallbackNodeOid: oid,
+                    screenshotType: node.layerOid != nil ? .group : .solo,
+                    outputPath: outputPath
+                )
+            } catch {
+                lastError = error
+                guard attempt == 0, shouldRetry(after: error) else {
+                    throw error
+                }
+                sessionService.disconnectAll()
+                try? await Task.sleep(nanoseconds: 400_000_000)
+            }
         }
 
-        guard let layerOid = node.layerOid ?? node.viewOid else {
-            throw LookinCoreError.screenshotFailed(reason: "Node \(oid) does not expose a capturable layer")
-        }
-
-        let client = try await sessionService.getClient(for: sessionId)
-        let data = try await client.fetchHighResolutionNodeScreenshot(oid: layerOid)
-        return try writeScreenshot(
-            data: data,
-            fallbackNodeOid: oid,
-            screenshotType: node.layerOid != nil ? .group : .solo,
-            outputPath: outputPath
-        )
+        throw lastError ?? LookinCoreError.screenshotFailed(reason: "Unknown node capture failure")
     }
 
     private func writeScreenshot(
@@ -92,6 +120,18 @@ public final class LiveScreenshotService: ScreenshotServiceProtocol, @unchecked 
             return .tiff
         }
         return .png
+    }
+
+    private func shouldRetry(after error: Error) -> Bool {
+        switch error {
+        case let LookinCoreError.protocolError(reason):
+            return reason.localizedCaseInsensitiveContains("connection closed")
+                || reason.localizedCaseInsensitiveContains("connect failed")
+        case let LookinCoreError.appNotFound(identifier):
+            return !identifier.isEmpty
+        default:
+            return false
+        }
     }
 
 }

@@ -13,7 +13,7 @@ settings:
 packages:
   ViewglassServer:
     url: https://github.com/WZBbiao/ViewglassServer.git
-    from: 0.1.0
+    branch: main
 targets:
   ViewglassDemo:
     type: application

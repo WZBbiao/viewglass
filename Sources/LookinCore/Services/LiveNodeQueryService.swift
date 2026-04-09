@@ -31,11 +31,25 @@ public final class LiveNodeQueryService: NodeQueryServiceProtocol, @unchecked Se
     }
 
     public func getAttributes(oid: UInt, sessionId: String) async throws -> [LKAttributeGroup] {
-        let client = try await sessionService.getClient(for: sessionId)
-        let hierarchy = try await client.fetchHierarchy()
-        let targetOid = resolveAttributeObjectOid(nodeOid: oid, hierarchy: hierarchy)
-        let groups = try await client.fetchAllAttrGroups(oid: targetOid)
-        return groups.map { LKBridgeConverter.convertAttributesGroup($0) }
+        var lastError: Error?
+        for attempt in 0..<2 {
+            do {
+                let client = try await sessionService.getClient(for: sessionId)
+                let hierarchy = try await client.fetchHierarchy()
+                let targetOid = resolveAttributeObjectOid(nodeOid: oid, hierarchy: hierarchy)
+                let groups = try await client.fetchAllAttrGroups(oid: targetOid)
+                return groups.map { LKBridgeConverter.convertAttributesGroup($0) }
+            } catch {
+                lastError = error
+                guard attempt == 0, shouldRetry(after: error) else {
+                    throw error
+                }
+                sessionService.disconnectAll()
+                try? await Task.sleep(nanoseconds: 400_000_000)
+            }
+        }
+
+        throw lastError ?? LookinCoreError.nodeNotFound(oid: oid)
     }
 
     public func queryNodes(expression: String, sessionId: String) async throws -> [LKNode] {
@@ -74,5 +88,17 @@ public final class LiveNodeQueryService: NodeQueryServiceProtocol, @unchecked Se
             }
         }
         return nil
+    }
+
+    private func shouldRetry(after error: Error) -> Bool {
+        switch error {
+        case let LookinCoreError.protocolError(reason):
+            return reason.localizedCaseInsensitiveContains("connection closed")
+                || reason.localizedCaseInsensitiveContains("connect failed")
+        case let LookinCoreError.appNotFound(identifier):
+            return !identifier.isEmpty
+        default:
+            return false
+        }
     }
 }

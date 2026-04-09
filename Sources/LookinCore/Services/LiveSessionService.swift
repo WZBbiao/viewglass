@@ -212,6 +212,21 @@ public final class LiveSessionService: SessionServiceProtocol, @unchecked Sendab
     /// Get or create a protocol client for the given session.
     /// If no client exists in memory, reconnects using the persisted session port.
     public func getClient(for sessionId: String) async throws -> LKProtocolClient {
+        if let target = Self.parseDirectConnectionTarget(sessionId) {
+            let (client, app) = try await connectDirectClient(target: target, originalIdentifier: sessionId)
+            let session = LKSessionDescriptor(
+                sessionId: sessionId,
+                app: app,
+                connectedAt: Date(),
+                status: .connected
+            )
+            clients[app.port] = client
+            activeClient = client
+            activeSession = session
+            try? store.save(session)
+            return client
+        }
+
         if let port = Int(sessionId), let client = clients[port], client.isConnected {
             do {
                 try await verify(client: client, matches: activeSession?.app ?? store.load()?.app)
@@ -287,6 +302,15 @@ public final class LiveSessionService: SessionServiceProtocol, @unchecked Sendab
         }
         if let saved = store.load(), saved.sessionId == sessionId {
             return saved
+        }
+        if let target = Self.parseDirectConnectionTarget(sessionId) {
+            let app = try await connectDirectApp(target: target, originalIdentifier: sessionId)
+            return LKSessionDescriptor(
+                sessionId: sessionId,
+                app: app,
+                connectedAt: Date(),
+                status: .connected
+            )
         }
         guard
             let port = Int(sessionId),
@@ -422,6 +446,43 @@ public final class LiveSessionService: SessionServiceProtocol, @unchecked Sendab
         }
     }
 
+    private func connectDirectClient(
+        target: DirectConnectionTarget,
+        originalIdentifier: String
+    ) async throws -> (LKProtocolClient, LKAppDescriptor) {
+        let client = LKProtocolClient()
+        do {
+            try await client.connect(host: "127.0.0.1", port: target.port)
+            let appInfo = try await client.fetchAppInfo(needImages: false)
+            guard appInfo.appBundleIdentifier == target.bundleIdentifier else {
+                client.disconnect()
+                throw LookinCoreError.appNotFound(identifier: originalIdentifier)
+            }
+
+            let deviceType: LKAppDescriptor.DeviceType = LKPortConstants.simulatorPorts.contains(target.port) ? .simulator : .device
+            let deviceIdentifier: String?
+            if deviceType == .device {
+                let identifiers = usbForwardManager.connectedDeviceIdentifiers()
+                deviceIdentifier = identifiers.count == 1 ? identifiers[0] : nil
+            } else {
+                deviceIdentifier = nil
+            }
+
+            let app = LKBridgeConverter.convertAppInfo(
+                appInfo,
+                host: "127.0.0.1",
+                port: target.port,
+                remotePort: LKPortConstants.devicePorts.contains(target.port) ? target.port : nil,
+                deviceType: deviceType,
+                deviceIdentifier: deviceIdentifier
+            )
+            return (client, app)
+        } catch {
+            client.disconnect()
+            throw error
+        }
+    }
+
     private func makeConnectedSession(for app: LKAppDescriptor) async throws -> LKSessionDescriptor {
         let session = LKSessionDescriptor(
             sessionId: "\(app.port)",
@@ -461,13 +522,17 @@ public final class LiveSessionService: SessionServiceProtocol, @unchecked Sendab
     }
 
     @discardableResult
-    private func connectAndPersist(session: LKSessionDescriptor, app: LKAppDescriptor) async throws -> LKProtocolClient {
+    private func connectAndPersist(
+        session: LKSessionDescriptor,
+        app: LKAppDescriptor,
+        persistedSessionId: String? = nil
+    ) async throws -> LKProtocolClient {
         let client = try await connectClient(for: app)
         try await verify(client: client, matches: app)
         activeClient = client
 
         let refreshed = LKSessionDescriptor(
-            sessionId: "\(app.port)",
+            sessionId: persistedSessionId ?? "\(app.port)",
             app: app,
             connectedAt: Date(),
             status: .connected

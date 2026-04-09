@@ -23,69 +23,85 @@ public final class LiveMutationService: MutationServiceProtocol, @unchecked Send
         value: String,
         sessionId: String
     ) async throws -> LKModificationResult {
-        let client = try await sessionService.getClient(for: sessionId)
+        var lastError: Error?
+        for attempt in 0..<2 {
+            do {
+                let client = try await sessionService.getClient(for: sessionId)
 
-        guard let mapping = LKAttributeRegistry.mapping(for: key) else {
-            throw LookinCoreError.attributeModificationFailed(
-                key: key,
-                reason: "Unknown attribute '\(key)'. Available: \(LKAttributeRegistry.allKeys.joined(separator: ", "))"
-            )
+                guard let mapping = LKAttributeRegistry.mapping(for: key) else {
+                    throw LookinCoreError.attributeModificationFailed(
+                        key: key,
+                        reason: "Unknown attribute '\(key)'. Available: \(LKAttributeRegistry.allKeys.joined(separator: ", "))"
+                    )
+                }
+
+                guard let parsedValue = LKAttributeRegistry.parseValue(value, attrType: mapping.attrType) else {
+                    throw LookinCoreError.attributeModificationFailed(
+                        key: key,
+                        reason: "Cannot parse '\(value)' as \(mapping.attrType)"
+                    )
+                }
+
+                let hierarchy = try await client.fetchHierarchy()
+
+                let target = try resolveTargetMetadata(
+                    nodeOid: nodeOid,
+                    isLayerProperty: mapping.targetIsLayer,
+                    hierarchy: hierarchy
+                )
+                if let requiredClass = mapping.requiredClass {
+                    try ensureClassChain(
+                        target.classChain,
+                        contains: requiredClass,
+                        action: "set-attribute:\(key)",
+                        targetClass: target.className
+                    )
+                }
+                try await ensureSelectorExists(
+                    client: client,
+                    className: target.className,
+                    selector: mapping.setter,
+                    hasArg: true,
+                    action: "set-attribute:\(key)"
+                )
+                try await ensureSelectorExists(
+                    client: client,
+                    className: target.className,
+                    selector: mapping.getter,
+                    hasArg: false,
+                    action: "set-attribute:\(key)"
+                )
+
+                let modification = LookinAttributeModification()
+                modification.targetOid = target.objectOid
+                modification.setterSelector = NSSelectorFromString(mapping.setter)
+                modification.getterSelector = NSSelectorFromString(mapping.getter)
+                modification.attrType = mapping.attrType
+                modification.value = parsedValue
+                modification.clientReadableVersion = LOOKIN_SERVER_READABLE_VERSION
+
+                try await client.submitModification(modification)
+
+                return LKModificationResult(
+                    nodeOid: nodeOid,
+                    attributeKey: key,
+                    previousValue: "<live>",
+                    newValue: value,
+                    success: true
+                )
+            } catch {
+                lastError = error
+                guard attempt == 0, shouldRetry(after: error) else {
+                    throw error
+                }
+                sessionService.disconnectAll()
+                try? await Task.sleep(nanoseconds: 400_000_000)
+            }
         }
 
-        guard let parsedValue = LKAttributeRegistry.parseValue(value, attrType: mapping.attrType) else {
-            throw LookinCoreError.attributeModificationFailed(
-                key: key,
-                reason: "Cannot parse '\(value)' as \(mapping.attrType)"
-            )
-        }
-
-        // Fetch hierarchy to register OID mappings with the server.
-        let hierarchy = try await client.fetchHierarchy()
-
-        let target = try resolveTargetMetadata(
-            nodeOid: nodeOid,
-            isLayerProperty: mapping.targetIsLayer,
-            hierarchy: hierarchy
-        )
-        if let requiredClass = mapping.requiredClass {
-            try ensureClassChain(
-                target.classChain,
-                contains: requiredClass,
-                action: "set-attribute:\(key)",
-                targetClass: target.className
-            )
-        }
-        try await ensureSelectorExists(
-            client: client,
-            className: target.className,
-            selector: mapping.setter,
-            hasArg: true,
-            action: "set-attribute:\(key)"
-        )
-        try await ensureSelectorExists(
-            client: client,
-            className: target.className,
-            selector: mapping.getter,
-            hasArg: false,
-            action: "set-attribute:\(key)"
-        )
-
-        let modification = LookinAttributeModification()
-        modification.targetOid = target.objectOid
-        modification.setterSelector = NSSelectorFromString(mapping.setter)
-        modification.getterSelector = NSSelectorFromString(mapping.getter)
-        modification.attrType = mapping.attrType
-        modification.value = parsedValue
-        modification.clientReadableVersion = LOOKIN_SERVER_READABLE_VERSION
-
-        try await client.submitModification(modification)
-
-        return LKModificationResult(
-            nodeOid: nodeOid,
-            attributeKey: key,
-            previousValue: "<live>",
-            newValue: value,
-            success: true
+        throw lastError ?? LookinCoreError.attributeModificationFailed(
+            key: key,
+            reason: "Unknown live mutation failure"
         )
     }
 
@@ -207,6 +223,7 @@ public final class LiveMutationService: MutationServiceProtocol, @unchecked Send
                     throw error
                 }
                 sessionService.disconnectAll()
+                try? await Task.sleep(nanoseconds: 400_000_000)
             }
         }
 
@@ -244,6 +261,7 @@ public final class LiveMutationService: MutationServiceProtocol, @unchecked Send
                     throw error
                 }
                 sessionService.disconnectAll()
+                try? await Task.sleep(nanoseconds: 400_000_000)
             }
         }
 
@@ -254,29 +272,43 @@ public final class LiveMutationService: MutationServiceProtocol, @unchecked Send
         nodeOid: UInt,
         sessionId: String
     ) async throws -> LKActionResult {
-        let client = try await sessionService.getClient(for: sessionId)
-        let hierarchy = try await client.fetchHierarchy()
-        let target = try resolveTargetMetadata(
-            nodeOid: nodeOid,
-            isLayerProperty: false,
-            hierarchy: hierarchy
-        )
-        try ensureClassChain(
-            target.classChain,
-            contains: "UIViewController",
-            action: "dismiss",
-            targetClass: target.className
-        )
+        var lastError: Error?
+        for attempt in 0..<2 {
+            do {
+                let client = try await sessionService.getClient(for: sessionId)
+                let hierarchy = try await client.fetchHierarchy()
+                let target = try resolveTargetMetadata(
+                    nodeOid: nodeOid,
+                    isLayerProperty: false,
+                    hierarchy: hierarchy
+                )
+                try ensureClassChain(
+                    target.classChain,
+                    contains: "UIViewController",
+                    action: "dismiss",
+                    targetClass: target.className
+                )
 
-        let detail = try await client.triggerSemanticDismiss(oid: target.objectOid)
-        return LKActionResult(
-            action: "dismiss",
-            nodeOid: nodeOid,
-            targetClass: target.className,
-            mode: .semantic,
-            success: true,
-            detail: detail ?? "Dismissed \(target.className)"
-        )
+                let detail = try await client.triggerSemanticDismiss(oid: target.objectOid)
+                return LKActionResult(
+                    action: "dismiss",
+                    nodeOid: nodeOid,
+                    targetClass: target.className,
+                    mode: .semantic,
+                    success: true,
+                    detail: detail ?? "Dismissed \(target.className)"
+                )
+            } catch {
+                lastError = error
+                guard attempt == 0, shouldRetry(after: error) else {
+                    throw error
+                }
+                sessionService.disconnectAll()
+                try? await Task.sleep(nanoseconds: 400_000_000)
+            }
+        }
+
+        throw lastError ?? LookinCoreError.actionFailed(action: "dismiss", reason: "Unknown dismiss failure")
     }
 
     public func inspectGestures(
@@ -349,10 +381,17 @@ public final class LiveMutationService: MutationServiceProtocol, @unchecked Send
     }
 
     private func shouldRetry(after error: Error) -> Bool {
-        guard case let LookinCoreError.protocolError(reason) = error else {
+        switch error {
+        case let LookinCoreError.protocolError(reason):
+            let normalized = reason.localizedCaseInsensitiveContains("connection closed")
+                || reason.localizedCaseInsensitiveContains("connect failed")
+                || reason.localizedCaseInsensitiveContains("operation not permitted")
+            return normalized
+        case let LookinCoreError.appNotFound(identifier):
+            return !identifier.isEmpty
+        default:
             return false
         }
-        return reason.localizedCaseInsensitiveContains("connection closed")
     }
 
     private func findTarget(
