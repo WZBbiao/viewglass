@@ -22,6 +22,9 @@ public struct LKLocator: Codable, Equatable, Sendable {
 
     public static func parse(_ input: String) -> LKLocator {
         let trimmed = input.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmed.isEmpty, trimmed.allSatisfy(\.isNumber) {
+            return LKLocator(rawValue: input, kind: .oid, value: trimmed)
+        }
         if trimmed.hasPrefix("primaryOid:") {
             return LKLocator(rawValue: input, kind: .primaryOid, value: String(trimmed.dropFirst("primaryOid:".count)))
         }

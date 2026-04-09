@@ -31,7 +31,7 @@ public final class LKTargetResolver: Sendable {
             guard let oid = UInt(locator.value) else {
                 throw LookinCoreError.querySyntaxError(expression: locator.rawValue, reason: "Invalid primaryOid value")
             }
-            return snapshot.flatNodes.filter { $0.primaryOid == oid }
+            return snapshot.flatNodes.filter { $0.primaryOid == oid || $0.hostViewControllerOid == oid }
         case .accessibilityIdentifier:
             return snapshot.flatNodes.filter { $0.accessibilityIdentifier == locator.value }
         case .accessibilityLabel:

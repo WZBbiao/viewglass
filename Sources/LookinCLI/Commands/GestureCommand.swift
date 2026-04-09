@@ -18,8 +18,8 @@ struct GestureListCommand: AsyncParsableCommand {
         abstract: "List gesture recognizers attached to a node"
     )
 
-    @Argument(help: "Target node OID")
-    var nodeId: UInt
+    @Argument(help: "Target locator, OID, or resolved-target JSON")
+    var target: String
 
     @Option(name: .long, help: "Session ID (auto-detected if omitted)")
     var session: String?
@@ -37,7 +37,13 @@ struct GestureListCommand: AsyncParsableCommand {
 
         do {
             let sessionId = try resolveSession(session, services: services)
-            var result = try await services.mutation.inspectGestures(nodeOid: nodeId, sessionId: sessionId)
+            let resolved = try await resolveActionTarget(
+                target,
+                services: services,
+                sessionId: sessionId,
+                action: "gesture-inspect"
+            )
+            var result = try await services.mutation.inspectGestures(nodeOid: resolved.node.primaryOid, sessionId: sessionId)
             if !includeRaw {
                 result = LKGestureInspectionResult(
                     nodeOid: result.nodeOid,
@@ -64,8 +70,8 @@ struct GestureInspectCommand: AsyncParsableCommand {
         abstract: "Inspect gesture recognizers with raw recognizer payload"
     )
 
-    @Argument(help: "Target node OID")
-    var nodeId: UInt
+    @Argument(help: "Target locator, OID, or resolved-target JSON")
+    var target: String
 
     @Option(name: .long, help: "Session ID (auto-detected if omitted)")
     var session: String?
@@ -75,7 +81,7 @@ struct GestureInspectCommand: AsyncParsableCommand {
 
     mutating func run() async throws {
         var list = GestureListCommand()
-        list.nodeId = nodeId
+        list.target = target
         list.session = session
         list.json = json
         try await list.runGestureInspection(includeRaw: true)

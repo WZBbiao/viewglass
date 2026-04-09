@@ -54,3 +54,62 @@ func unsupportedPhysicalAction(_ action: String) -> LookinCoreError {
         reason: "Physical input is currently disabled because the previous implementation depended on macOS focus-stealing automation. Use semantic mode instead."
     )
 }
+
+func resolveActionTarget(
+    _ input: String,
+    services: ServiceContainer,
+    sessionId: String,
+    action: String,
+    capability: String? = nil
+) async throws -> LKResolvedMatch {
+    if let resolved = try? decodeResolvedTarget(from: input) {
+        if let selected = resolved.selectedTarget {
+            return try ensureCapability(selected, action: action, capability: capability)
+        }
+        throw LookinCoreError.actionFailed(
+            action: action,
+            reason: "Locator matched \(resolved.matches.count) targets. Refine the locator or pass a selectedTarget payload."
+        )
+    }
+
+    if let match = try? decodeResolvedMatch(from: input) {
+        return try ensureCapability(match, action: action, capability: capability)
+    }
+
+    let resolved = try await services.nodeQuery.resolve(locator: .parse(input), sessionId: sessionId)
+    guard let selected = resolved.selectedTarget else {
+        let reason = resolved.matches.isEmpty
+            ? "Locator matched no targets."
+            : "Locator matched \(resolved.matches.count) targets. Refine the locator or disambiguate first."
+        throw LookinCoreError.actionFailed(action: action, reason: reason)
+    }
+    return try ensureCapability(selected, action: action, capability: capability)
+}
+
+private func ensureCapability(
+    _ match: LKResolvedMatch,
+    action: String,
+    capability: String?
+) throws -> LKResolvedMatch {
+    guard let capability else { return match }
+    if let value = match.capabilities[capability], !value.supported {
+        throw LookinCoreError.actionFailed(
+            action: action,
+            reason: value.reason ?? "target does not support \(capability)"
+        )
+    }
+    return match
+}
+
+private func decodeResolvedTarget(from input: String) throws -> LKResolvedTarget {
+    let data = Data(input.utf8)
+    let decoder = JSONDecoder()
+    decoder.dateDecodingStrategy = .iso8601
+    return try decoder.decode(LKResolvedTarget.self, from: data)
+}
+
+private func decodeResolvedMatch(from input: String) throws -> LKResolvedMatch {
+    let data = Data(input.utf8)
+    let decoder = JSONDecoder()
+    return try decoder.decode(LKResolvedMatch.self, from: data)
+}

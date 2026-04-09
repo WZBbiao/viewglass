@@ -54,8 +54,8 @@ struct ScreenshotNode: AsyncParsableCommand {
         abstract: "Capture a screenshot of a specific node"
     )
 
-    @Argument(help: "Node OID")
-    var nodeId: UInt
+    @Argument(help: "Target locator, OID, or resolved-target JSON")
+    var target: String
 
     @Option(name: .long, help: "Session ID (auto-detected if omitted)")
     var session: String?
@@ -73,9 +73,17 @@ struct ScreenshotNode: AsyncParsableCommand {
         let services = ServiceContainer.makeLive()
         defer { services.shutdown() }
         do {
+            let sessionId = try resolveSession(session, services: services)
+            let resolved = try await resolveActionTarget(
+                target,
+                services: services,
+                sessionId: sessionId,
+                action: "capture-target",
+                capability: "capture"
+            )
             let ref = try await services.screenshot.captureNode(
-                oid: nodeId,
-                sessionId: try resolveSession(session, services: services),
+                oid: resolved.node.primaryOid,
+                sessionId: sessionId,
                 outputPath: output,
                 preferredDeviceIdentifier: udid
             )

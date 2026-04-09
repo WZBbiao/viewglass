@@ -15,8 +15,8 @@ struct AttrGet: AsyncParsableCommand {
         abstract: "Get all attributes of a node"
     )
 
-    @Argument(help: "Node OID")
-    var nodeId: UInt
+    @Argument(help: "Target locator, OID, or resolved-target JSON")
+    var target: String
 
     @Option(name: .long, help: "Session ID (auto-detected if omitted)")
     var session: String?
@@ -29,8 +29,15 @@ struct AttrGet: AsyncParsableCommand {
         defer { services.shutdown() }
         do {
             let sessionId = try resolveSession(session, services: services)
-            let node = try await services.nodeQuery.getNode(oid: nodeId, sessionId: sessionId)
-            let groups = try await services.nodeQuery.getAttributes(oid: nodeId, sessionId: sessionId)
+            let resolved = try await resolveActionTarget(
+                target,
+                services: services,
+                sessionId: sessionId,
+                action: "attr-get",
+                capability: "inspect"
+            )
+            let node = resolved.node
+            let groups = try await services.nodeQuery.getAttributes(oid: node.oid, sessionId: sessionId)
             if json {
                 JSONOutput.print(NodeAttributes(
                     oid: node.oid,
@@ -68,8 +75,8 @@ struct AttrSet: AsyncParsableCommand {
         abstract: "Set an attribute on a node"
     )
 
-    @Argument(help: "Node OID")
-    var nodeId: UInt
+    @Argument(help: "Target locator, OID, or resolved-target JSON")
+    var target: String
 
     @Argument(help: "Attribute key (e.g. 'frame.origin.x', 'alpha', 'hidden')")
     var key: String
@@ -102,11 +109,18 @@ struct AttrSet: AsyncParsableCommand {
 
         defer { services.shutdown() }
         do {
+            let sessionId = try resolveSession(session, services: services)
+            let resolved = try await resolveActionTarget(
+                target,
+                services: services,
+                sessionId: sessionId,
+                action: "attr-set"
+            )
             let result = try await services.mutation.setAttribute(
-                nodeOid: nodeId,
+                nodeOid: resolved.node.oid,
                 key: key,
                 value: value,
-                sessionId: try resolveSession(session, services: services)
+                sessionId: sessionId
             )
             OutputFormatter.printModification(result, mode: json ? .json : .human)
         } catch let error as LookinCoreError {

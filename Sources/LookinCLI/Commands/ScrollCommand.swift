@@ -8,8 +8,8 @@ struct ScrollCommand: AsyncParsableCommand {
         abstract: "Scroll a UIScrollView node using semantic actions"
     )
 
-    @Argument(help: "Target node OID")
-    var nodeId: UInt
+    @Argument(help: "Target locator, OID, or resolved-target JSON")
+    var target: String
 
     @Option(name: .long, help: "Scroll to absolute content offset as 'x,y'")
     var to: String?
@@ -27,14 +27,21 @@ struct ScrollCommand: AsyncParsableCommand {
     var json = false
 
     mutating func run() async throws {
-        let services = ServiceContainer.makeLive()
+            let services = ServiceContainer.makeLive()
         defer { services.shutdown() }
 
         do {
             let sessionId = try resolveSession(session, services: services)
-            let baseNode = try await services.nodeQuery.getNode(oid: nodeId, sessionId: sessionId)
+            let resolved = try await resolveActionTarget(
+                target,
+                services: services,
+                sessionId: sessionId,
+                action: "scroll",
+                capability: "scroll"
+            )
+            let baseNode = resolved.node
             let needsAttributes = by != nil
-            let groups = needsAttributes ? try await services.nodeQuery.getAttributes(oid: nodeId, sessionId: sessionId) : []
+            let groups = needsAttributes ? try await services.nodeQuery.getAttributes(oid: baseNode.oid, sessionId: sessionId) : []
             let node = LKNode(
                 oid: baseNode.oid,
                 primaryOid: baseNode.primaryOid,
