@@ -34,6 +34,7 @@ static const uint32_t LookinRequestTypeSemanticTap = 215;
 static const uint32_t LookinRequestTypeSemanticLongPress = 216;
 static const uint32_t LookinRequestTypeHighResolutionScreenshot = 217;
 static const uint32_t LookinRequestTypeSemanticDismiss = 218;
+static const uint32_t LookinRequestTypeSemanticTextInput = 219;
 
 // Push types
 static const uint32_t LookinPush_BringForwardScreenshotTask = 303;

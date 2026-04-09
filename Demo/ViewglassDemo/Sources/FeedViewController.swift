@@ -19,6 +19,21 @@ final class FeedViewController: UIViewController {
             title: "Infinite-ish Feed",
             subtitle: "A long mixed-height feed for semantic scroll and screenshot stitching checks."
         )
+
+        let tabSwitchRow = UIStackView()
+        tabSwitchRow.axis = .horizontal
+        tabSwitchRow.spacing = 12
+
+        let switchHome = makeDemoButton(title: "Switch to Home Tab", filled: false)
+        switchHome.accessibilityIdentifier = DemoID.switchTabHome
+        switchHome.addTarget(self, action: #selector(switchToHomeTab), for: .touchUpInside)
+
+        let switchForms = makeDemoButton(title: "Switch to Forms Tab", filled: false)
+        switchForms.accessibilityIdentifier = DemoID.switchTabForms
+        switchForms.addTarget(self, action: #selector(switchToFormsTab), for: .touchUpInside)
+
+        [switchHome, switchForms].forEach(tabSwitchRow.addArrangedSubview(_:))
+        hero.addArrangedSubview(tabSwitchRow)
         stack.addArrangedSubview(hero)
 
         for index in 1...24 {
@@ -59,5 +74,13 @@ final class FeedViewController: UIViewController {
             stack.bottomAnchor.constraint(equalTo: scroll.contentLayoutGuide.bottomAnchor),
             stack.widthAnchor.constraint(equalTo: scroll.frameLayoutGuide.widthAnchor)
         ])
+    }
+
+    @objc private func switchToHomeTab() {
+        tabBarController?.selectedIndex = 0
+    }
+
+    @objc private func switchToFormsTab() {
+        tabBarController?.selectedIndex = 1
     }
 }

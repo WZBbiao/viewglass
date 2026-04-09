@@ -1,6 +1,12 @@
 import UIKit
 
 enum DemoID {
+    static let tabHome = "tab_home"
+    static let tabForms = "tab_forms"
+    static let tabFeed = "tab_feed"
+    static let switchTabHome = "switch_tab_home"
+    static let switchTabForms = "switch_tab_forms"
+    static let switchTabFeed = "switch_tab_feed"
     static let homeButtonsStack = "home_buttons_stack"
     static let pushButtons = "push_buttons_screen"
     static let pushForms = "push_forms_screen"
@@ -15,6 +21,7 @@ enum DemoID {
     static let primaryTextField = "primary_text_field"
     static let secureTextField = "secure_text_field"
     static let notesTextView = "notes_text_view"
+    static let formsStatus = "forms_status"
     static let notificationsSwitch = "notifications_switch"
     static let prioritySegment = "priority_segment"
     static let volumeSlider = "volume_slider"

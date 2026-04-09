@@ -7,8 +7,8 @@ struct LongPressCommand: AsyncParsableCommand {
         abstract: "Trigger a semantic long press on a node"
     )
 
-    @Argument(help: "Target node OID")
-    var nodeId: UInt
+    @Argument(help: "Target locator, OID, or resolved-target JSON")
+    var target: String
 
     @Option(name: .long, help: "Execution mode: auto, semantic, or physical")
     var mode: CLIActionExecutionMode = .auto
@@ -25,7 +25,7 @@ struct LongPressCommand: AsyncParsableCommand {
 
         do {
             let sessionId = try resolveSession(session, services: services)
-            let result = try await runLongPress(services: services, sessionId: sessionId, nodeId: nodeId)
+            let result = try await runLongPress(services: services, sessionId: sessionId, target: target)
             OutputFormatter.printAction(result, mode: json ? .json : .human)
         } catch let error as LookinCoreError {
             if json {
@@ -40,11 +40,18 @@ struct LongPressCommand: AsyncParsableCommand {
     private func runLongPress(
         services: ServiceContainer,
         sessionId: String,
-        nodeId: UInt
+        target: String
     ) async throws -> LKActionResult {
+        let resolved = try await resolveActionTarget(
+            target,
+            services: services,
+            sessionId: sessionId,
+            action: "long-press",
+            capability: "tap"
+        )
         switch mode {
         case .semantic, .auto:
-            return try await services.mutation.triggerLongPress(nodeOid: nodeId, sessionId: sessionId)
+            return try await services.mutation.triggerLongPress(nodeOid: resolved.targets.actionOid, sessionId: sessionId)
         case .physical:
             throw unsupportedPhysicalAction("long-press")
         }

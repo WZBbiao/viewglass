@@ -100,7 +100,10 @@ public final class LKQueryEngine: Sendable {
         // controller:ClassName
         if expr.hasPrefix("controller:") {
             let className = String(expr.dropFirst(11))
-            return { $0.hostViewControllerClassName == className }
+            return {
+                guard let hostClass = $0.hostViewControllerClassName else { return false }
+                return hostClass == className || hostClass.hasSuffix(".\(className)")
+            }
         }
 
         // depth:N
@@ -155,7 +158,11 @@ public final class LKQueryEngine: Sendable {
 
         // Plain class name (exact match) — also match hosting controller class
         if expr.first?.isUpperCase == true || expr.first == "_" || expr.contains(".") {
-            return { $0.className == expr || $0.hostViewControllerClassName == expr }
+            return {
+                $0.className == expr ||
+                $0.hostViewControllerClassName == expr ||
+                ($0.hostViewControllerClassName?.hasSuffix(".\(expr)") ?? false)
+            }
         }
 
         throw LookinCoreError.querySyntaxError(expression: expr, reason: "Unrecognized expression")

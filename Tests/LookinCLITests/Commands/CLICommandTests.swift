@@ -145,6 +145,14 @@ final class CLICommandTests: XCTestCase {
         XCTAssertEqual(result.mode, .semantic)
     }
 
+    func testInputFlow() async throws {
+        let services = ServiceContainer.makeMock()
+        let result = try await services.mutation.inputText(nodeOid: 4, text: "agent@example.com", sessionId: "test")
+        XCTAssertTrue(result.success)
+        XCTAssertEqual(result.action, "input")
+        XCTAssertEqual(result.mode, .semantic)
+    }
+
     func testGestureInspectFlow() async throws {
         let services = ServiceContainer.makeMock()
         let result = try await services.mutation.inspectGestures(nodeOid: 167, sessionId: "test")

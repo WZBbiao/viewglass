@@ -220,6 +220,21 @@ public final class LKProtocolClient: @unchecked Sendable {
         return nil
     }
 
+    public func triggerSemanticTextInput(oid: UInt, text: String) async throws -> String? {
+        let requestData: NSDictionary = [
+            "oid": NSNumber(value: oid),
+            "text": text
+        ]
+        let response = try await sendRequest(type: LookinRequestTypeSemanticTextInput, data: requestData)
+        if let dict = response.data as? NSDictionary {
+            return dict["detail"] as? String
+        }
+        if let detail = response.data as? NSString {
+            return detail as String
+        }
+        return nil
+    }
+
     public func fetchHighResolutionScreenScreenshot() async throws -> Data {
         let response = try await sendRequest(type: LookinRequestTypeHighResolutionScreenshot, data: [:] as NSDictionary)
         guard let data = response.data as? Data, !data.isEmpty else {

@@ -41,7 +41,10 @@ public final class LKTargetResolver: Sendable {
         case .accessibilityLabel:
             return snapshot.flatNodes.filter { $0.accessibilityLabel == locator.value }
         case .controller:
-            return snapshot.flatNodes.filter { $0.hostViewControllerClassName == locator.value }
+            return snapshot.flatNodes.filter {
+                guard let className = $0.hostViewControllerClassName else { return false }
+                return className == locator.value || className.hasSuffix(".\(locator.value)")
+            }
         case .query:
             return try queryEngine.execute(expression: locator.value, on: snapshot)
         }
@@ -66,6 +69,7 @@ public final class LKTargetResolver: Sendable {
         let isController = classChain.contains { $0.contains("Controller") } || node.hostViewControllerOid == node.primaryOid
         let isScrollView = classChain.contains("UIScrollView")
         let isActionableView = node.isUserInteractionEnabled || node.className == "UIControl" || node.hostViewControllerOid != nil
+        let isTextInput = classChain.contains("UITextField") || classChain.contains("UITextView")
 
         return [
             "inspect": LKCapability(supported: true),
@@ -79,6 +83,9 @@ public final class LKTargetResolver: Sendable {
             "dismiss": isController || node.hostViewControllerOid != nil
                 ? LKCapability(supported: true)
                 : LKCapability(supported: false, reason: "target is not a UIViewController subclass"),
+            "input": isTextInput
+                ? LKCapability(supported: true)
+                : LKCapability(supported: false, reason: "target is not a UITextField or UITextView"),
             "invoke": LKCapability(supported: true)
         ]
     }

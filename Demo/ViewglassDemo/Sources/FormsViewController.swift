@@ -1,6 +1,9 @@
 import UIKit
 
 final class FormsViewController: UIViewController, UITextViewDelegate {
+    private let primaryTextField = UITextField()
+    private let secureTextField = UITextField()
+    private let notesTextView = UITextView()
     private let statusLabel = UILabel()
 
     override func viewDidLoad() {
@@ -20,26 +23,40 @@ final class FormsViewController: UIViewController, UITextViewDelegate {
             subtitle: "Covers text entry, secure input, toggles, segmented controls, sliders, steppers and date pickers."
         )
 
-        let textField = UITextField()
-        textField.borderStyle = .roundedRect
-        textField.placeholder = "Email address"
-        textField.accessibilityIdentifier = DemoID.primaryTextField
+        let tabSwitchRow = UIStackView()
+        tabSwitchRow.axis = .horizontal
+        tabSwitchRow.spacing = 12
 
-        let secureField = UITextField()
-        secureField.borderStyle = .roundedRect
-        secureField.isSecureTextEntry = true
-        secureField.placeholder = "Password"
-        secureField.accessibilityIdentifier = DemoID.secureTextField
+        let switchHome = makeDemoButton(title: "Switch to Home Tab", filled: false)
+        switchHome.accessibilityIdentifier = DemoID.switchTabHome
+        switchHome.addTarget(self, action: #selector(switchToHomeTab), for: .touchUpInside)
 
-        let notes = UITextView()
-        notes.font = UIFont.systemFont(ofSize: 16)
-        notes.text = "Multiline notes"
-        notes.backgroundColor = DemoTheme.accentSoft
-        notes.layer.cornerRadius = 16
-        notes.textContainerInset = UIEdgeInsets(top: 14, left: 12, bottom: 14, right: 12)
-        notes.heightAnchor.constraint(equalToConstant: 120).isActive = true
-        notes.accessibilityIdentifier = DemoID.notesTextView
-        notes.delegate = self
+        let switchFeed = makeDemoButton(title: "Switch to Feed Tab", filled: false)
+        switchFeed.accessibilityIdentifier = DemoID.switchTabFeed
+        switchFeed.addTarget(self, action: #selector(switchToFeedTab), for: .touchUpInside)
+
+        [switchHome, switchFeed].forEach(tabSwitchRow.addArrangedSubview(_:))
+        intro.addArrangedSubview(tabSwitchRow)
+
+        primaryTextField.borderStyle = .roundedRect
+        primaryTextField.placeholder = "Email address"
+        primaryTextField.accessibilityIdentifier = DemoID.primaryTextField
+        primaryTextField.addTarget(self, action: #selector(textFieldDidChange), for: .editingChanged)
+
+        secureTextField.borderStyle = .roundedRect
+        secureTextField.isSecureTextEntry = true
+        secureTextField.placeholder = "Password"
+        secureTextField.accessibilityIdentifier = DemoID.secureTextField
+        secureTextField.addTarget(self, action: #selector(textFieldDidChange), for: .editingChanged)
+
+        notesTextView.font = UIFont.systemFont(ofSize: 16)
+        notesTextView.text = "Multiline notes"
+        notesTextView.backgroundColor = DemoTheme.accentSoft
+        notesTextView.layer.cornerRadius = 16
+        notesTextView.textContainerInset = UIEdgeInsets(top: 14, left: 12, bottom: 14, right: 12)
+        notesTextView.heightAnchor.constraint(equalToConstant: 120).isActive = true
+        notesTextView.accessibilityIdentifier = DemoID.notesTextView
+        notesTextView.delegate = self
 
         let notifications = UISwitch()
         notifications.isOn = true
@@ -62,15 +79,16 @@ final class FormsViewController: UIViewController, UITextViewDelegate {
         datePicker.preferredDatePickerStyle = .compact
         datePicker.accessibilityIdentifier = DemoID.datePicker
 
-        statusLabel.text = "2 guests, notifications on"
+        statusLabel.text = "Email: -, Password: 0 chars, Notes: 15 chars"
         statusLabel.numberOfLines = 0
         statusLabel.font = UIFont.systemFont(ofSize: 15, weight: .medium)
         statusLabel.textColor = DemoTheme.ink
+        statusLabel.accessibilityIdentifier = DemoID.formsStatus
 
         let rows: [(String, UIView)] = [
-            ("Email", textField),
-            ("Password", secureField),
-            ("Notes", notes),
+            ("Email", primaryTextField),
+            ("Password", secureTextField),
+            ("Notes", notesTextView),
             ("Notifications", notifications),
             ("Priority", priority),
             ("Volume", slider),
@@ -91,6 +109,7 @@ final class FormsViewController: UIViewController, UITextViewDelegate {
             intro.addArrangedSubview(row)
         }
         intro.addArrangedSubview(statusLabel)
+        refreshStatus()
 
         stack.addArrangedSubview(intro)
         scroll.addSubview(stack)
@@ -113,6 +132,23 @@ final class FormsViewController: UIViewController, UITextViewDelegate {
     }
 
     func textViewDidChange(_ textView: UITextView) {
-        statusLabel.text = "Notes characters: \(textView.text.count)"
+        refreshStatus()
+    }
+
+    @objc private func textFieldDidChange() {
+        refreshStatus()
+    }
+
+    @objc private func switchToHomeTab() {
+        tabBarController?.selectedIndex = 0
+    }
+
+    @objc private func switchToFeedTab() {
+        tabBarController?.selectedIndex = 2
+    }
+
+    private func refreshStatus() {
+        let email = primaryTextField.text?.isEmpty == false ? primaryTextField.text! : "-"
+        statusLabel.text = "Email: \(email), Password: \(secureTextField.text?.count ?? 0) chars, Notes: \(notesTextView.text.count) chars"
     }
 }

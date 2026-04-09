@@ -112,6 +112,24 @@ public final class MockMutationService: MutationServiceProtocol, @unchecked Send
         )
     }
 
+    public func inputText(
+        nodeOid: UInt,
+        text: String,
+        sessionId: String
+    ) async throws -> LKActionResult {
+        if shouldFail {
+            throw LookinCoreError.actionFailed(action: "input", reason: "Mock failure")
+        }
+        return LKActionResult(
+            action: "input",
+            nodeOid: nodeOid,
+            targetClass: "UITextInput",
+            mode: .semantic,
+            success: true,
+            detail: "Inserted \(text.count) characters"
+        )
+    }
+
     public func inspectGestures(
         nodeOid: UInt,
         sessionId: String

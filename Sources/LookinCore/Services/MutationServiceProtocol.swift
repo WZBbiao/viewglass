@@ -34,6 +34,12 @@ public protocol MutationServiceProtocol: Sendable {
         sessionId: String
     ) async throws -> LKActionResult
 
+    func inputText(
+        nodeOid: UInt,
+        text: String,
+        sessionId: String
+    ) async throws -> LKActionResult
+
     func inspectGestures(
         nodeOid: UInt,
         sessionId: String

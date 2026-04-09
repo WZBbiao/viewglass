@@ -311,6 +311,51 @@ public final class LiveMutationService: MutationServiceProtocol, @unchecked Send
         throw lastError ?? LookinCoreError.actionFailed(action: "dismiss", reason: "Unknown dismiss failure")
     }
 
+    public func inputText(
+        nodeOid: UInt,
+        text: String,
+        sessionId: String
+    ) async throws -> LKActionResult {
+        var lastError: Error?
+        for attempt in 0..<2 {
+            do {
+                let client = try await sessionService.getClient(for: sessionId)
+                let hierarchy = try await client.fetchHierarchy()
+                let target = try resolveTargetMetadata(
+                    nodeOid: nodeOid,
+                    isLayerProperty: false,
+                    hierarchy: hierarchy
+                )
+                let supportedInputClasses = ["UITextField", "UITextView"]
+                guard supportedInputClasses.contains(where: { target.classChain.contains($0) || target.className == $0 }) else {
+                    throw LookinCoreError.actionFailed(
+                        action: "input",
+                        reason: "\(target.className) is not a supported text input target. Use UITextField or UITextView."
+                    )
+                }
+
+                let detail = try await client.triggerSemanticTextInput(oid: target.objectOid, text: text)
+                return LKActionResult(
+                    action: "input",
+                    nodeOid: nodeOid,
+                    targetClass: target.className,
+                    mode: .semantic,
+                    success: true,
+                    detail: detail ?? "Inserted \(text.count) characters"
+                )
+            } catch {
+                lastError = error
+                guard attempt == 0, shouldRetry(after: error) else {
+                    throw error
+                }
+                sessionService.disconnectAll()
+                try? await Task.sleep(nanoseconds: 400_000_000)
+            }
+        }
+
+        throw lastError ?? LookinCoreError.actionFailed(action: "input", reason: "Unknown semantic text input failure")
+    }
+
     public func inspectGestures(
         nodeOid: UInt,
         sessionId: String

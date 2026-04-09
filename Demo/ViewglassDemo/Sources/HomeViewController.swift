@@ -19,6 +19,21 @@ final class HomeViewController: UIViewController {
             subtitle: "A self-owned demo app for Viewglass. It covers navigation, alerts, sheets, gestures, forms and long scrolling surfaces with real UIKit views."
         )
 
+        let tabSwitchRow = UIStackView()
+        tabSwitchRow.axis = .horizontal
+        tabSwitchRow.spacing = 12
+
+        let switchForms = makeDemoButton(title: "Switch to Forms Tab", filled: false)
+        switchForms.accessibilityIdentifier = DemoID.switchTabForms
+        switchForms.addTarget(self, action: #selector(switchToFormsTab), for: .touchUpInside)
+
+        let switchFeed = makeDemoButton(title: "Switch to Feed Tab", filled: false)
+        switchFeed.accessibilityIdentifier = DemoID.switchTabFeed
+        switchFeed.addTarget(self, action: #selector(switchToFeedTab), for: .touchUpInside)
+
+        [switchForms, switchFeed].forEach(tabSwitchRow.addArrangedSubview(_:))
+        intro.addArrangedSubview(tabSwitchRow)
+
         let actions = UIStackView()
         actions.axis = .vertical
         actions.spacing = 12
@@ -87,5 +102,13 @@ final class HomeViewController: UIViewController {
         let modal = ModalCardViewController(titleText: "Home Sheet", bodyText: "Presented from the root screen to verify modal traversal.")
         modal.modalPresentationStyle = .pageSheet
         present(modal, animated: true)
+    }
+
+    @objc private func switchToFormsTab() {
+        tabBarController?.selectedIndex = 1
+    }
+
+    @objc private func switchToFeedTab() {
+        tabBarController?.selectedIndex = 2
     }
 }
