@@ -32,6 +32,8 @@ final class JSONOutputTests: XCTestCase {
     func testNodeJSONStability() throws {
         let node = LKNode(
             oid: 1,
+            primaryOid: 2,
+            oidType: .view,
             className: "UIView",
             address: "0x1",
             frame: LKRect(x: 0, y: 0, width: 100, height: 100),
@@ -53,6 +55,8 @@ final class JSONOutputTests: XCTestCase {
 
         // Verify stable field names
         XCTAssertTrue(json.contains("\"oid\""))
+        XCTAssertTrue(json.contains("\"primaryOid\""))
+        XCTAssertTrue(json.contains("\"oidType\""))
         XCTAssertTrue(json.contains("\"className\""))
         XCTAssertTrue(json.contains("\"address\""))
         XCTAssertTrue(json.contains("\"frame\""))

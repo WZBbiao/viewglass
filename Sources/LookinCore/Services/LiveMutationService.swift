@@ -361,6 +361,9 @@ public final class LiveMutationService: MutationServiceProtocol, @unchecked Send
         in items: [LookinDisplayItem]
     ) -> (objectOid: UInt, className: String, classChain: [String])? {
         for item in items {
+            let layerMatches = UInt(item.layerObject?.oid ?? 0) == oid
+            let viewMatches = UInt(item.viewObject?.oid ?? 0) == oid
+
             if !isLayerProperty,
                let controller = item.hostViewControllerObject,
                UInt(controller.oid) == oid {
@@ -374,7 +377,7 @@ public final class LiveMutationService: MutationServiceProtocol, @unchecked Send
 
             if isLayerProperty,
                let layer = item.layerObject,
-               UInt(layer.oid) == oid {
+               layerMatches {
                 let className = layer.rawClassName() ?? "CALayer"
                 return (
                     objectOid: UInt(layer.oid),
@@ -383,7 +386,7 @@ public final class LiveMutationService: MutationServiceProtocol, @unchecked Send
                 )
             }
 
-            if let view = item.viewObject, UInt(view.oid) == oid {
+            if let view = item.viewObject, viewMatches {
                 let className = view.rawClassName() ?? "UIView"
                 return (
                     objectOid: UInt(view.oid),
@@ -393,13 +396,13 @@ public final class LiveMutationService: MutationServiceProtocol, @unchecked Send
             }
 
             if !isLayerProperty,
-               let layer = item.layerObject,
-               UInt(layer.oid) == oid {
-                let className = layer.rawClassName() ?? "CALayer"
+               layerMatches,
+               let view = item.viewObject {
+                let className = view.rawClassName() ?? "UIView"
                 return (
-                    objectOid: UInt(layer.oid),
+                    objectOid: UInt(view.oid),
                     className: className,
-                    classChain: layer.classChainList ?? [className]
+                    classChain: view.classChainList ?? [className]
                 )
             }
 

@@ -44,6 +44,8 @@ final class LKNodeTests: XCTestCase {
     func testNodeCodable() throws {
         let node = LKNode(
             oid: 42,
+            primaryOid: 24,
+            oidType: .view,
             className: "UILabel",
             address: "0x600042",
             frame: LKRect(x: 10, y: 20, width: 200, height: 30),
@@ -68,6 +70,8 @@ final class LKNodeTests: XCTestCase {
         let decoded = try JSONDecoder().decode(LKNode.self, from: data)
 
         XCTAssertEqual(decoded.oid, 42)
+        XCTAssertEqual(decoded.primaryOid, 24)
+        XCTAssertEqual(decoded.oidType, .view)
         XCTAssertEqual(decoded.className, "UILabel")
         XCTAssertEqual(decoded.address, "0x600042")
         XCTAssertEqual(decoded.frame.x, 10)
@@ -87,6 +91,8 @@ final class LKNodeTests: XCTestCase {
     func testNodeJSONShape() throws {
         let node = LKNode(
             oid: 1,
+            primaryOid: 2,
+            oidType: .view,
             className: "UIView",
             frame: LKRect(x: 0, y: 0, width: 100, height: 100),
             bounds: LKRect(x: 0, y: 0, width: 100, height: 100),
@@ -100,6 +106,8 @@ final class LKNodeTests: XCTestCase {
         let dict = try JSONSerialization.jsonObject(with: data) as! [String: Any]
 
         XCTAssertNotNil(dict["oid"])
+        XCTAssertNotNil(dict["primaryOid"])
+        XCTAssertNotNil(dict["oidType"])
         XCTAssertNotNil(dict["className"])
         XCTAssertNotNil(dict["frame"])
         XCTAssertNotNil(dict["bounds"])
@@ -113,5 +121,16 @@ final class LKNodeTests: XCTestCase {
         XCTAssertNotNil(dict["isOpaque"])
         XCTAssertNotNil(dict["depth"])
         XCTAssertNotNil(dict["childrenOids"])
+    }
+
+    func testPrimaryOidDefaultsToViewThenLayerThenOID() {
+        let viewNode = LKNode(oid: 10, viewOid: 20, layerOid: 10, className: "UIView")
+        XCTAssertEqual(viewNode.primaryOid, 20)
+
+        let layerNode = LKNode(oid: 11, layerOid: 11, className: "CALayer")
+        XCTAssertEqual(layerNode.primaryOid, 11)
+
+        let fallbackNode = LKNode(oid: 12, className: "NSObject")
+        XCTAssertEqual(fallbackNode.primaryOid, 12)
     }
 }

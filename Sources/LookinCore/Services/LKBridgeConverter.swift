@@ -54,7 +54,7 @@ public enum LKBridgeConverter {
     ) -> LKNodeTree {
         let node = convertDisplayItem(item, depth: depth, parentOid: parentOid)
         let children = (item.subitems ?? []).map { child in
-            convertDisplayItemTree(child, depth: depth + 1, parentOid: node.oid)
+            convertDisplayItemTree(child, depth: depth + 1, parentOid: node.primaryOid)
         }
         return LKNodeTree(node: node, children: children)
     }
@@ -67,6 +67,12 @@ public enum LKBridgeConverter {
         let viewOid = item.viewObject?.oid
         let layerOid = item.layerObject?.oid
         let oid = layerOid ?? viewOid ?? 0
+        let primaryOid = viewOid ?? layerOid ?? 0
+        let oidType: LKNodeOIDType = {
+            if layerOid != nil { return .layer }
+            if viewOid != nil { return .view }
+            return .unknown
+        }()
         let className = item.viewObject?.rawClassName() ?? item.layerObject?.rawClassName() ?? "Unknown"
         let address = item.viewObject?.memoryAddress ?? item.layerObject?.memoryAddress ?? ""
 
@@ -84,7 +90,7 @@ public enum LKBridgeConverter {
         )
 
         let childrenOids = (item.subitems ?? []).compactMap { child -> UInt? in
-            child.layerObject?.oid ?? child.viewObject?.oid
+            child.viewObject?.oid ?? child.layerObject?.oid
         }
 
         let attrGroups = item.attributesGroupList?.map { convertAttributesGroup($0) }
@@ -99,6 +105,8 @@ public enum LKBridgeConverter {
 
         return LKNode(
             oid: UInt(oid),
+            primaryOid: UInt(primaryOid),
+            oidType: oidType,
             viewOid: viewOid.map { UInt($0) },
             layerOid: layerOid.map { UInt($0) },
             className: className,

@@ -29,6 +29,21 @@ final class LiveMutationServicePreflightTests: XCTestCase {
         XCTAssertEqual(target.classChain, ["CALayer", "NSObject"])
     }
 
+    func testResolveTargetMetadataUsesViewObjectWhenInteractionTargetsLayerOID() throws {
+        let service = LiveMutationService(sessionService: LiveSessionService(store: SessionStore(directory: tempDir())))
+        let hierarchy = makeHierarchy(
+            viewClassChain: ["UILabel", "UIView", "NSObject"],
+            layerOid: 77,
+            layerClassChain: ["_UILabelLayer", "CALayer", "NSObject"]
+        )
+
+        let target = try service.resolveTargetMetadata(nodeOid: 77, isLayerProperty: false, hierarchy: hierarchy)
+
+        XCTAssertEqual(target.objectOid, 42)
+        XCTAssertEqual(target.className, "UILabel")
+        XCTAssertEqual(target.classChain, ["UILabel", "UIView", "NSObject"])
+    }
+
     func testResolveTargetMetadataUsesHostViewControllerObjectWhenOIDMatchesController() throws {
         let service = LiveMutationService(sessionService: LiveSessionService(store: SessionStore(directory: tempDir())))
         let hierarchy = makeHierarchy(

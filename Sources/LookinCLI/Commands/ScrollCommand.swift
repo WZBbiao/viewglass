@@ -37,6 +37,8 @@ struct ScrollCommand: AsyncParsableCommand {
             let groups = needsAttributes ? try await services.nodeQuery.getAttributes(oid: nodeId, sessionId: sessionId) : []
             let node = LKNode(
                 oid: baseNode.oid,
+                primaryOid: baseNode.primaryOid,
+                oidType: baseNode.oidType,
                 viewOid: baseNode.viewOid,
                 layerOid: baseNode.layerOid,
                 className: baseNode.className,
@@ -50,6 +52,8 @@ struct ScrollCommand: AsyncParsableCommand {
                 tag: baseNode.tag,
                 accessibilityLabel: baseNode.accessibilityLabel,
                 accessibilityIdentifier: baseNode.accessibilityIdentifier,
+                hostViewControllerClassName: baseNode.hostViewControllerClassName,
+                hostViewControllerOid: baseNode.hostViewControllerOid,
                 layerClassName: baseNode.layerClassName,
                 clipsToBounds: baseNode.clipsToBounds,
                 isOpaque: baseNode.isOpaque,
@@ -146,6 +150,8 @@ struct ScrollCommand: AsyncParsableCommand {
         let refreshedGroups = try await services.nodeQuery.getAttributes(oid: node.oid, sessionId: sessionId)
         let refreshedNode = LKNode(
             oid: node.oid,
+            primaryOid: node.primaryOid,
+            oidType: node.oidType,
             viewOid: node.viewOid,
             layerOid: node.layerOid,
             className: node.className,
@@ -159,6 +165,8 @@ struct ScrollCommand: AsyncParsableCommand {
             tag: node.tag,
             accessibilityLabel: node.accessibilityLabel,
             accessibilityIdentifier: node.accessibilityIdentifier,
+            hostViewControllerClassName: node.hostViewControllerClassName,
+            hostViewControllerOid: node.hostViewControllerOid,
             layerClassName: node.layerClassName,
             clipsToBounds: node.clipsToBounds,
             isOpaque: node.isOpaque,

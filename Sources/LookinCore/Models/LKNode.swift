@@ -1,7 +1,16 @@
 import Foundation
 
+public enum LKNodeOIDType: String, Codable, Equatable, Sendable {
+    case view
+    case layer
+    case controller
+    case unknown
+}
+
 public struct LKNode: Codable, Equatable, Sendable {
     public let oid: UInt
+    public let primaryOid: UInt
+    public let oidType: LKNodeOIDType
     public let viewOid: UInt?
     public let layerOid: UInt?
     public let className: String
@@ -35,8 +44,40 @@ public struct LKNode: Codable, Equatable, Sendable {
         customDisplayTitle ?? className
     }
 
+    enum CodingKeys: String, CodingKey {
+        case oid
+        case primaryOid
+        case oidType
+        case viewOid
+        case layerOid
+        case className
+        case address
+        case frame
+        case bounds
+        case isHidden
+        case alpha
+        case isUserInteractionEnabled
+        case backgroundColor
+        case tag
+        case accessibilityLabel
+        case accessibilityIdentifier
+        case hostViewControllerClassName
+        case hostViewControllerOid
+        case layerClassName
+        case clipsToBounds
+        case isOpaque
+        case contentMode
+        case customDisplayTitle
+        case depth
+        case parentOid
+        case childrenOids
+        case attributeGroups
+    }
+
     public init(
         oid: UInt,
+        primaryOid: UInt? = nil,
+        oidType: LKNodeOIDType = .unknown,
         viewOid: UInt? = nil,
         layerOid: UInt? = nil,
         className: String,
@@ -63,6 +104,8 @@ public struct LKNode: Codable, Equatable, Sendable {
         attributeGroups: [LKAttributeGroup]? = nil
     ) {
         self.oid = oid
+        self.primaryOid = primaryOid ?? viewOid ?? layerOid ?? oid
+        self.oidType = oidType
         self.viewOid = viewOid
         self.layerOid = layerOid
         self.className = className
@@ -87,5 +130,41 @@ public struct LKNode: Codable, Equatable, Sendable {
         self.parentOid = parentOid
         self.childrenOids = childrenOids
         self.attributeGroups = attributeGroups
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let oid = try container.decode(UInt.self, forKey: .oid)
+        let viewOid = try container.decodeIfPresent(UInt.self, forKey: .viewOid)
+        let layerOid = try container.decodeIfPresent(UInt.self, forKey: .layerOid)
+
+        self.oid = oid
+        self.primaryOid = try container.decodeIfPresent(UInt.self, forKey: .primaryOid) ?? viewOid ?? layerOid ?? oid
+        self.oidType = try container.decodeIfPresent(LKNodeOIDType.self, forKey: .oidType)
+            ?? (layerOid == oid ? .layer : (viewOid == oid ? .view : .unknown))
+        self.viewOid = viewOid
+        self.layerOid = layerOid
+        self.className = try container.decode(String.self, forKey: .className)
+        self.address = try container.decodeIfPresent(String.self, forKey: .address) ?? ""
+        self.frame = try container.decodeIfPresent(LKRect.self, forKey: .frame) ?? LKRect(x: 0, y: 0, width: 0, height: 0)
+        self.bounds = try container.decodeIfPresent(LKRect.self, forKey: .bounds) ?? LKRect(x: 0, y: 0, width: 0, height: 0)
+        self.isHidden = try container.decodeIfPresent(Bool.self, forKey: .isHidden) ?? false
+        self.alpha = try container.decodeIfPresent(Double.self, forKey: .alpha) ?? 1.0
+        self.isUserInteractionEnabled = try container.decodeIfPresent(Bool.self, forKey: .isUserInteractionEnabled) ?? true
+        self.backgroundColor = try container.decodeIfPresent(String.self, forKey: .backgroundColor)
+        self.tag = try container.decodeIfPresent(Int.self, forKey: .tag) ?? 0
+        self.accessibilityLabel = try container.decodeIfPresent(String.self, forKey: .accessibilityLabel)
+        self.accessibilityIdentifier = try container.decodeIfPresent(String.self, forKey: .accessibilityIdentifier)
+        self.hostViewControllerClassName = try container.decodeIfPresent(String.self, forKey: .hostViewControllerClassName)
+        self.hostViewControllerOid = try container.decodeIfPresent(UInt.self, forKey: .hostViewControllerOid)
+        self.layerClassName = try container.decodeIfPresent(String.self, forKey: .layerClassName)
+        self.clipsToBounds = try container.decodeIfPresent(Bool.self, forKey: .clipsToBounds) ?? false
+        self.isOpaque = try container.decodeIfPresent(Bool.self, forKey: .isOpaque) ?? true
+        self.contentMode = try container.decodeIfPresent(String.self, forKey: .contentMode)
+        self.customDisplayTitle = try container.decodeIfPresent(String.self, forKey: .customDisplayTitle)
+        self.depth = try container.decodeIfPresent(Int.self, forKey: .depth) ?? 0
+        self.parentOid = try container.decodeIfPresent(UInt.self, forKey: .parentOid)
+        self.childrenOids = try container.decodeIfPresent([UInt].self, forKey: .childrenOids) ?? []
+        self.attributeGroups = try container.decodeIfPresent([LKAttributeGroup].self, forKey: .attributeGroups)
     }
 }

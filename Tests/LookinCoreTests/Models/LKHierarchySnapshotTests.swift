@@ -18,6 +18,27 @@ final class LKHierarchySnapshotTests: XCTestCase {
         XCTAssertEqual(button?.className, "UIButton")
     }
 
+    func testFindNodeByPrimaryOrRelatedOID() {
+        let node = LKNode(
+            oid: 11,
+            primaryOid: 22,
+            oidType: .view,
+            viewOid: 22,
+            layerOid: 11,
+            className: "UILabel",
+            hostViewControllerClassName: "HostVC",
+            hostViewControllerOid: 33
+        )
+        let snapshot = LKHierarchySnapshot(
+            appInfo: LKAppDescriptor(appName: "A", bundleIdentifier: "b", port: 1),
+            windows: [LKNodeTree(node: node)]
+        )
+
+        XCTAssertEqual(snapshot.findNode(oid: 11)?.className, "UILabel")
+        XCTAssertEqual(snapshot.findNode(oid: 22)?.className, "UILabel")
+        XCTAssertEqual(snapshot.findNode(oid: 33)?.className, "UILabel")
+    }
+
     func testFindNode_notFound() {
         let snapshot = MockHierarchyService.makeSampleSnapshot()
         let missing = snapshot.findNode(oid: 999)
