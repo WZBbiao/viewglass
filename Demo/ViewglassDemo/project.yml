@@ -1,0 +1,32 @@
+name: ViewglassDemo
+options:
+  minimumXcodeGenVersion: 2.38.0
+  deploymentTarget:
+    iOS: "16.0"
+settings:
+  base:
+    PRODUCT_BUNDLE_IDENTIFIER: com.wzb.ViewglassDemo
+    PRODUCT_NAME: ViewglassDemo
+    SWIFT_VERSION: 5.10
+    IPHONEOS_DEPLOYMENT_TARGET: 16.0
+    DEVELOPMENT_TEAM: ""
+packages:
+  ViewglassServer:
+    url: https://github.com/WZBbiao/ViewglassServer.git
+    from: 0.1.0
+targets:
+  ViewglassDemo:
+    type: application
+    platform: iOS
+    sources:
+      - path: Sources
+    settings:
+      base:
+        INFOPLIST_FILE: Sources/Info.plist
+        TARGETED_DEVICE_FAMILY: "1,2"
+        ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS: NO
+    dependencies:
+      - package: ViewglassServer
+        product: LookinServer
+    scheme:
+      testTargets: []
