@@ -157,9 +157,21 @@ public final class LKTCPConnection: LKConnectionProtocol, @unchecked Sendable {
     public func drainPendingData(timeoutMs: Int32) async {
         guard let c = nwConn else { return }
         let deadline = Date().addingTimeInterval(Double(timeoutMs) / 1_000)
+        // Each receive call gets at most 200 ms before we give up on that chunk.
+        // Without this per-call watchdog, `c.receive` can block indefinitely when the
+        // server has no more push frames but the connection stays open (e.g. real USB
+        // devices keep the connection alive longer than loopback simulators).
         while Date() < deadline {
+            let chunkTimeout = min(deadline.timeIntervalSinceNow, 0.2)
+            guard chunkTimeout > 0 else { break }
             let gotData = await withCheckedContinuation { (k: CheckedContinuation<Bool, Never>) in
+                let once = LKOnce()
+                ioQueue.asyncAfter(deadline: .now() + chunkTimeout) {
+                    guard once.fire() else { return }
+                    k.resume(returning: false) // No data within window
+                }
                 c.receive(minimumIncompleteLength: 1, maximumLength: 65_536) { data, _, _, _ in
+                    guard once.fire() else { return }
                     k.resume(returning: !(data?.isEmpty ?? true))
                 }
             }

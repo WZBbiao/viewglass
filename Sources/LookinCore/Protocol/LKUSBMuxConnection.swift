@@ -78,12 +78,24 @@ public final class LKUSBMuxConnection: LKConnectionProtocol, @unchecked Sendable
     public func drainPendingData(timeoutMs: Int32) async {
         guard let channel = io else { return }
         let deadline = Date().addingTimeInterval(Double(timeoutMs) / 1_000)
+        // 200 ms per-chunk watchdog prevents DispatchIO.read from blocking indefinitely
+        // when no more push frames are coming but the connection stays open (real devices).
         while Date() < deadline {
+            let chunkTimeout = min(deadline.timeIntervalSinceNow, 0.2)
+            guard chunkTimeout > 0 else { break }
             let gotData = await withCheckedContinuation { (k: CheckedContinuation<Bool, Never>) in
+                let once = LKOnce()
+                queue.asyncAfter(deadline: .now() + chunkTimeout) {
+                    guard once.fire() else { return }
+                    k.resume(returning: false)
+                }
                 var accumulated = false
-                channel.read(offset: 0, length: 65_536, queue: queue) { done, data, _ in
+                channel.read(offset: 0, length: 65_536, queue: self.queue) { done, data, _ in
                     if let d = data, !d.isEmpty { accumulated = true }
-                    if done { k.resume(returning: accumulated) }
+                    if done {
+                        guard once.fire() else { return }
+                        k.resume(returning: accumulated)
+                    }
                 }
             }
             if !gotData { break }
