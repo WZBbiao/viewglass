@@ -15,7 +15,7 @@
   `viewglass locate "Open Long Feed"` 返回 0 结果（字符串被当作类名查询处理）。
   修复：在 `LKLocator.parse` 中，含空格的字符串 fallback 为 `accessibilityLabel` 类型，而非 `query`。
 
-- [ ] **#4 attr get 缺失 UISwitch.isOn 和 UISegmentedControl.selectedSegmentIndex** (`LiveNodeQueryService`)
+- [x] **#4 attr get 缺失 UISwitch.isOn 和 UISegmentedControl.selectedSegmentIndex** (`LiveNodeQueryService`)
   服务端未为这两个控件注册属性组，`attr get` 看不到当前值。
   修复：CLI 端在返回属性列表时，对 UISwitch/UISegmentedControl 通过 `invokeMethod` 读取后注入到 `[viewglass_runtime]` 组。
 

@@ -39,7 +39,34 @@ public final class LiveNodeQueryService: NodeQueryServiceProtocol, @unchecked Se
                 let hierarchy = try await client.fetchHierarchy(forceRefresh: true)
                 let targetOid = resolveAttributeObjectOid(nodeOid: oid, hierarchy: hierarchy)
                 let groups = try await client.fetchAllAttrGroups(oid: targetOid)
-                return groups.map { LKBridgeConverter.convertAttributesGroup($0) }
+                var result = groups.map { LKBridgeConverter.convertAttributesGroup($0) }
+
+                // Inject runtime-read attributes the server doesn't include in its groups.
+                // UISwitch.isOn and UISegmentedControl.selectedSegmentIndex are not registered
+                // in the server's attribute group list, so we fetch them via invokeMethod.
+                if let item = findItem(oid: oid, in: hierarchy.displayItems ?? []),
+                   let viewObj = item.viewObject {
+                    let className = viewObj.rawClassName() ?? ""
+                    let classChain = viewObj.classChainList ?? [className]
+                    let viewOid = UInt(viewObj.oid)
+                    var runtimeAttrs: [LKAttribute] = []
+                    if classChain.contains("UISwitch") || className == "UISwitch" {
+                        if let (desc, _) = try? await client.invokeMethod(oid: viewOid, selector: "isOn") {
+                            let isOn = desc == "1" || desc?.lowercased() == "yes" || desc?.lowercased() == "true"
+                            runtimeAttrs.append(LKAttribute(key: "isOn", displayName: "isOn", value: .bool(isOn)))
+                        }
+                    } else if classChain.contains("UISegmentedControl") || className == "UISegmentedControl" {
+                        if let (desc, _) = try? await client.invokeMethod(oid: viewOid, selector: "selectedSegmentIndex") {
+                            let index = Double(desc ?? "0") ?? 0
+                            runtimeAttrs.append(LKAttribute(key: "selectedSegmentIndex", displayName: "selectedSegmentIndex", value: .number(index)))
+                        }
+                    }
+                    if !runtimeAttrs.isEmpty {
+                        result.insert(LKAttributeGroup(groupName: "[viewglass_runtime]", attributes: runtimeAttrs), at: 0)
+                    }
+                }
+
+                return result
             } catch {
                 lastError = error
                 guard attempt == 0, shouldRetry(after: error) else {
