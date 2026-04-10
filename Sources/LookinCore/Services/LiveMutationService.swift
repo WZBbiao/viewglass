@@ -148,8 +148,9 @@ public final class LiveMutationService: MutationServiceProtocol, @unchecked Send
             currentOffset = .zero
         }
 
-        // Send 8 interpolated frames with ease-in-out cubic.
-        let steps = 8
+        // Send 12 interpolated frames with ease-in-out cubic at ~60 fps.
+        let steps = 12
+        let frameNs: UInt64 = 16_000_000  // 16 ms ≈ 60 fps
         for i in 1...steps {
             let t = Double(i) / Double(steps)
             // Cubic ease-in-out
@@ -168,6 +169,7 @@ public final class LiveMutationService: MutationServiceProtocol, @unchecked Send
             mod.value = boxedValue
             mod.clientReadableVersion = LOOKIN_SERVER_READABLE_VERSION
             try? await client.submitModification(mod)
+            try await Task.sleep(nanoseconds: frameNs)
         }
 
         let finalString = "\(targetOffset.x),\(targetOffset.y)"
