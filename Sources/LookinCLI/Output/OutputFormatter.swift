@@ -199,6 +199,23 @@ public enum OutputFormatter {
         }
     }
 
+    public static func printWaitResult(_ result: LKWaitResult, mode: OutputMode) {
+        switch mode {
+        case .json:
+            JSONOutput.print(result)
+        case .human:
+            let elapsed = String(format: "%.2f", result.elapsedSeconds)
+            let polls = "\(result.pollCount) poll\(result.pollCount == 1 ? "" : "s")"
+            if result.met {
+                let matches = result.matchCount.map { ", \($0) match\($0 == 1 ? "" : "es")" } ?? ""
+                print("Condition met after \(elapsed)s (\(polls)): \(result.condition)\(matches)")
+            } else {
+                let matches = result.matchCount.map { " (last count: \($0))" } ?? ""
+                printStderr("Timeout after \(elapsed)s (\(polls)): \(result.condition)\(matches)")
+            }
+        }
+    }
+
     public static func printGestureInspection(_ result: LKGestureInspectionResult, mode: OutputMode) {
         switch mode {
         case .json:
