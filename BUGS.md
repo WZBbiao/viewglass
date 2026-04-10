@@ -7,7 +7,7 @@
   根因：`convertDisplayItem` 中 `oid = layerOid ?? viewOid` 而 `actionOid = viewOid ?? layerOid`。
   修复：统一 `node.oid` 为 `viewOid ?? layerOid`（与 `primaryOid` 一致）。
 
-- [ ] **#2 control tap 无法切换 UISwitch** (`ControlCommand`, `LiveMutationService`)
+- [x] **#2 control tap 无法切换 UISwitch** (`ControlCommand`, `LiveMutationService`)
   `control tap` 只发送 `UIControlEventTouchUpInside`，但 UISwitch 的切换需在 touch tracking 期间完成，单纯发送此事件不改变 `isOn`。
   修复：检测到 UISwitch 时，读取当前 `isOn`，通过 `setAttribute` 取反，再发送 `UIControlEventValueChanged`。
 
@@ -19,7 +19,7 @@
   服务端未为这两个控件注册属性组，`attr get` 看不到当前值。
   修复：CLI 端在返回属性列表时，对 UISwitch/UISegmentedControl 通过 `invokeMethod` 读取后注入到 `[viewglass_runtime]` 组。
 
-- [ ] **#5 attr set 修改控件属性后不触发 UIControlEventValueChanged** (`LiveMutationService`)
+- [x] **#5 attr set 修改控件属性后不触发 UIControlEventValueChanged** (`LiveMutationService`)
   `attr set isOn false` / `attr set selectedSegmentIndex 0` 直接修改属性，不走 UIKit 事件流，应用层 `valueChanged` 回调不触发。
   修复：对 `isOn`、`selectedSegmentIndex`、`selected` 等控件状态属性，修改后额外发送 `UIControlEventValueChanged`。
 

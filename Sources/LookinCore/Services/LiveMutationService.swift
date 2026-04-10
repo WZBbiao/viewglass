@@ -170,6 +170,25 @@ public final class LiveMutationService: MutationServiceProtocol, @unchecked Send
             action: "control-tap",
             targetClass: target.className
         )
+
+        // UISwitch ignores TouchUpInside for toggling — it requires full touch tracking.
+        // Instead, read the current isOn value and toggle it via setAttribute, which
+        // also sends UIControlEventValueChanged so app-layer callbacks fire.
+        if target.classChain.contains("UISwitch") || target.className == "UISwitch" {
+            let (currentDescription, _) = try await client.invokeMethod(oid: target.objectOid, selector: "isOn")
+            let currentIsOn = currentDescription.map { $0 == "1" || $0.lowercased() == "yes" || $0.lowercased() == "true" } ?? false
+            let newIsOn = !currentIsOn
+            _ = try await setAttribute(nodeOid: nodeOid, key: "isOn", value: newIsOn ? "true" : "false", sessionId: sessionId)
+            return LKActionResult(
+                action: "control-tap",
+                nodeOid: nodeOid,
+                targetClass: target.className,
+                mode: .semantic,
+                success: true,
+                detail: "Toggled UISwitch isOn: \(currentIsOn) → \(newIsOn)"
+            )
+        }
+
         try await ensureSelectorExists(
             client: client,
             className: target.className,
