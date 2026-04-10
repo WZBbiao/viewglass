@@ -11,3 +11,4 @@ Gemfile.lock
 .claude/
 .tmp-home/
 .vscode/
+BUGS.md
