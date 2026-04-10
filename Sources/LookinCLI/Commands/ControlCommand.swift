@@ -15,8 +15,8 @@ struct ControlTap: AsyncParsableCommand {
         abstract: "Trigger a primary tap on a UIControl node"
     )
 
-    @Argument(help: "Target node OID")
-    var nodeId: UInt
+    @Argument(help: "Target node OID (e.g. 817 or oid:817)")
+    var nodeId: String
 
     @Option(name: .long, help: "Execution mode: auto, semantic, or physical")
     var mode: CLIActionExecutionMode = .auto
@@ -32,8 +32,9 @@ struct ControlTap: AsyncParsableCommand {
         defer { services.shutdown() }
 
         do {
+            let oid = try parseOid(nodeId)
             let sessionId = try resolveSession(session, services: services)
-            let node = try await services.nodeQuery.getNode(oid: nodeId, sessionId: sessionId)
+            let node = try await services.nodeQuery.getNode(oid: oid, sessionId: sessionId)
             let result = try await runTap(services: services, sessionId: sessionId, node: node)
             OutputFormatter.printAction(result, mode: json ? .json : .human)
         } catch let error as LookinCoreError {

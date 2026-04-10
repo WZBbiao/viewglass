@@ -8,6 +8,16 @@ enum CLIActionExecutionMode: String, ExpressibleByArgument {
     case physical
 }
 
+/// Parse an OID argument in either "oid:N" or plain integer "N" format.
+func parseOid(_ input: String) throws -> UInt {
+    let trimmed = input.trimmingCharacters(in: .whitespaces)
+    let raw = trimmed.hasPrefix("oid:") ? String(trimmed.dropFirst(4)) : trimmed
+    guard let value = UInt(raw) else {
+        throw ValidationError("Invalid OID '\(trimmed)'. Expected a non-negative integer or 'oid:N' format.")
+    }
+    return value
+}
+
 func parseCGPoint(argument: String, label: String) throws -> CGPoint {
     let numbers = argument
         .components(separatedBy: CharacterSet(charactersIn: "{}, "))

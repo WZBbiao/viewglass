@@ -19,8 +19,8 @@ struct ConsoleEval: AsyncParsableCommand {
     @Argument(help: "Method selector to invoke (e.g. 'setNeedsLayout')")
     var expression: String
 
-    @Option(name: .long, help: "Target node OID")
-    var nodeId: UInt
+    @Option(name: .long, help: "Target node OID (e.g. 817 or oid:817)")
+    var nodeId: String
 
     @Option(name: .long, help: "Session ID (auto-detected if omitted)")
     var session: String?
@@ -32,8 +32,9 @@ struct ConsoleEval: AsyncParsableCommand {
         let services = ServiceContainer.makeLive()
         defer { services.shutdown() }
         do {
+            let oid = try parseOid(nodeId)
             let result = try await services.mutation.invokeMethod(
-                nodeOid: nodeId,
+                nodeOid: oid,
                 selector: expression,
                 sessionId: try resolveSession(session, services: services)
             )

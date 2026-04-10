@@ -16,8 +16,8 @@ struct NodeGet: AsyncParsableCommand {
         abstract: "Get detailed information about a specific node"
     )
 
-    @Argument(help: "Node OID (object identifier)")
-    var nodeId: UInt
+    @Argument(help: "Node OID (e.g. 817 or oid:817)")
+    var nodeId: String
 
     @Option(name: .long, help: "Session ID (auto-detected if omitted)")
     var session: String?
@@ -29,7 +29,8 @@ struct NodeGet: AsyncParsableCommand {
         let services = ServiceContainer.makeLive()
         defer { services.shutdown() }
         do {
-            let node = try await services.nodeQuery.getNode(oid: nodeId, sessionId: try resolveSession(session, services: services))
+            let oid = try parseOid(nodeId)
+            let node = try await services.nodeQuery.getNode(oid: oid, sessionId: try resolveSession(session, services: services))
             OutputFormatter.printNode(node, mode: json ? .json : .human)
         } catch let error as LookinCoreError {
             if json {

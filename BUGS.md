@@ -25,7 +25,7 @@
 
 ## Improvements
 
-- [ ] **#6 OID 参数格式不统一** (`ControlCommand`, `NodeCommand`, `ConsoleCommand`)
+- [x] **#6 OID 参数格式不统一** (`ControlCommand`, `NodeCommand`, `ConsoleCommand`)
   `tap`/`attr set`/`scroll` 接受 `oid:N` 格式，而 `control tap`/`node get`/`console eval` 只接受纯数字。
   修复：统一支持两种格式（`oid:N` 和纯数字 `N`）。
 
