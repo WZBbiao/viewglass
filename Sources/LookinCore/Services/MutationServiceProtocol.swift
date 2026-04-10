@@ -1,4 +1,5 @@
 import Foundation
+import CoreGraphics
 
 public protocol MutationServiceProtocol: Sendable {
     func setAttribute(
@@ -44,4 +45,10 @@ public protocol MutationServiceProtocol: Sendable {
         nodeOid: UInt,
         sessionId: String
     ) async throws -> LKGestureInspectionResult
+
+    func scrollAnimated(
+        nodeOid: UInt,
+        targetOffset: CGPoint,
+        sessionId: String
+    ) async throws -> LKModificationResult
 }

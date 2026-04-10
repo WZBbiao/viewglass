@@ -29,7 +29,7 @@
   `tap`/`attr set`/`scroll` 接受 `oid:N` 格式，而 `control tap`/`node get`/`console eval` 只接受纯数字。
   修复：统一支持两种格式（`oid:N` 和纯数字 `N`）。
 
-- [ ] **#7 scroll 缺少 --animated 选项** (`ScrollCommand`)
+- [x] **#7 scroll 缺少 --animated 选项** (`ScrollCommand`)
   `scroll --to` 直接跳转 contentOffset，无平滑动画。
   修复：增加 `--animated` flag，启用时通过 `setContentOffset:animated:` 实现过渡。
 

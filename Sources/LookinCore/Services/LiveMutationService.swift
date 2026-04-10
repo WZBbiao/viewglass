@@ -118,6 +118,68 @@ public final class LiveMutationService: MutationServiceProtocol, @unchecked Send
         )
     }
 
+    /// Scroll a UIScrollView to `targetOffset` with a simple multi-step eased animation.
+    /// Resolves the target once to avoid repeated hierarchy fetches, then sends N
+    /// intermediate offsets in quick succession for a smoother visual result.
+    public func scrollAnimated(
+        nodeOid: UInt,
+        targetOffset: CGPoint,
+        sessionId: String
+    ) async throws -> LKModificationResult {
+        guard let mapping = LKAttributeRegistry.mapping(for: "contentOffset") else {
+            throw LookinCoreError.attributeModificationFailed(key: "contentOffset", reason: "mapping not found")
+        }
+        let client = try await sessionService.getClient(for: sessionId)
+        let hierarchy = try await client.fetchHierarchy()
+        let target = try resolveTargetMetadata(
+            nodeOid: nodeOid,
+            isLayerProperty: false,
+            hierarchy: hierarchy
+        )
+
+        // Read current contentOffset via invokeMethod so we know where to start the easing.
+        let currentOffset: CGPoint
+        if let (desc, _) = try? await client.invokeMethod(oid: target.objectOid, selector: "contentOffset"),
+           let desc,
+           let nsVal = LKAttributeRegistry.parseValue(desc, attrType: .cgPoint) as? NSValue {
+            let pt = nsVal.pointValue
+            currentOffset = CGPoint(x: pt.x, y: pt.y)
+        } else {
+            currentOffset = .zero
+        }
+
+        // Send 8 interpolated frames with ease-in-out cubic.
+        let steps = 8
+        for i in 1...steps {
+            let t = Double(i) / Double(steps)
+            // Cubic ease-in-out
+            let ease = t < 0.5 ? 4 * t * t * t : 1 - pow(-2 * t + 2, 3) / 2
+            let x = currentOffset.x + (targetOffset.x - currentOffset.x) * ease
+            let y = currentOffset.y + (targetOffset.y - currentOffset.y) * ease
+            let pointString = "\(x),\(y)"
+            guard let boxedValue = LKAttributeRegistry.parseValue(pointString, attrType: .cgPoint) else {
+                continue
+            }
+            let mod = LookinAttributeModification()
+            mod.targetOid = target.objectOid
+            mod.setterSelector = NSSelectorFromString(mapping.setter)
+            mod.getterSelector = NSSelectorFromString(mapping.getter)
+            mod.attrType = mapping.attrType
+            mod.value = boxedValue
+            mod.clientReadableVersion = LOOKIN_SERVER_READABLE_VERSION
+            try? await client.submitModification(mod)
+        }
+
+        let finalString = "\(targetOffset.x),\(targetOffset.y)"
+        return LKModificationResult(
+            nodeOid: nodeOid,
+            attributeKey: "contentOffset",
+            previousValue: "\(currentOffset.x),\(currentOffset.y)",
+            newValue: finalString,
+            success: true
+        )
+    }
+
     public func invokeMethod(
         nodeOid: UInt,
         selector: String,

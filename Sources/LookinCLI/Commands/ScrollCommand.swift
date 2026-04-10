@@ -26,6 +26,9 @@ struct ScrollCommand: AsyncParsableCommand {
     @Flag(name: .long, help: "Output in JSON format")
     var json = false
 
+    @Flag(name: .long, help: "Animate the scroll with ease-in-out interpolation (multi-step client-side animation)")
+    var animated = false
+
     mutating func run() async throws {
         let services = ServiceContainer.makeLive()
         defer { services.shutdown() }
@@ -52,7 +55,8 @@ struct ScrollCommand: AsyncParsableCommand {
                 node: node,
                 actionOid: resolved.targets.actionOid,
                 inspectOid: resolved.targets.inspectOid,
-                targetOffset: resolvedOffset
+                targetOffset: resolvedOffset,
+                animated: animated
             )
             OutputFormatter.printAction(result, mode: json ? .json : .human)
         } catch let error as LookinCoreError {
@@ -107,7 +111,8 @@ struct ScrollCommand: AsyncParsableCommand {
         node: LKNode,
         actionOid: UInt,
         inspectOid: UInt,
-        targetOffset: CGPoint
+        targetOffset: CGPoint,
+        animated: Bool
     ) async throws -> LKActionResult {
         switch mode {
         case .semantic:
@@ -117,7 +122,8 @@ struct ScrollCommand: AsyncParsableCommand {
                 node: node,
                 actionOid: actionOid,
                 inspectOid: inspectOid,
-                targetOffset: targetOffset
+                targetOffset: targetOffset,
+                animated: animated
             )
         case .physical:
             throw unsupportedPhysicalAction("scroll")
@@ -128,7 +134,8 @@ struct ScrollCommand: AsyncParsableCommand {
                 node: node,
                 actionOid: actionOid,
                 inspectOid: inspectOid,
-                targetOffset: targetOffset
+                targetOffset: targetOffset,
+                animated: animated
             )
         }
     }
@@ -139,8 +146,20 @@ struct ScrollCommand: AsyncParsableCommand {
         node: LKNode,
         actionOid: UInt,
         inspectOid: UInt,
-        targetOffset: CGPoint
+        targetOffset: CGPoint,
+        animated: Bool
     ) async throws -> LKActionResult {
+        if animated {
+            _ = try await services.mutation.scrollAnimated(nodeOid: actionOid, targetOffset: targetOffset, sessionId: sessionId)
+            return LKActionResult(
+                action: "scroll",
+                nodeOid: actionOid,
+                targetClass: node.className,
+                mode: .semantic,
+                success: true,
+                detail: "contentOffset -> \(formatCGPoint(targetOffset)) (animated)"
+            )
+        }
         let value = formatCGPoint(targetOffset)
         _ = try await services.mutation.setAttribute(
             nodeOid: actionOid,

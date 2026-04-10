@@ -1,4 +1,5 @@
 import Foundation
+import CoreGraphics
 
 public final class MockMutationService: MutationServiceProtocol, @unchecked Sendable {
     public var shouldFail = false
@@ -148,5 +149,16 @@ public final class MockMutationService: MutationServiceProtocol, @unchecked Send
             gestures: LKGestureRecognizerParser.parse(rawValue),
             rawValue: rawValue
         )
+    }
+
+    public func scrollAnimated(
+        nodeOid: UInt,
+        targetOffset: CGPoint,
+        sessionId: String
+    ) async throws -> LKModificationResult {
+        if shouldFail {
+            throw LookinCoreError.attributeModificationFailed(key: "contentOffset", reason: "Mock failure")
+        }
+        return LKModificationResult(nodeOid: nodeOid, attributeKey: "contentOffset", previousValue: "0,0", newValue: "\(targetOffset.x),\(targetOffset.y)", success: true)
     }
 }
