@@ -37,7 +37,8 @@ public final class LiveSessionService: SessionServiceProtocol, @unchecked Sendab
     }
 
     public func probeDiscovery() async -> [LKDiscoveryProbe] {
-        let deviceIdentifiers = usbForwardManager.connectedDeviceIdentifiers()
+        // Use usbmuxd directly to list connected devices (no idevice_id process needed).
+        let usbDevices = await usbmuxdDevices()
 
         return await withTaskGroup(of: (Int, LKDiscoveryProbe).self) { group in
             var index = 0
@@ -50,12 +51,18 @@ public final class LiveSessionService: SessionServiceProtocol, @unchecked Sendab
                 }
             }
 
-            for deviceIdentifier in deviceIdentifiers {
+            for device in usbDevices {
                 for remotePort in LKPortConstants.devicePorts {
                     let currentIndex = index
+                    let udid = device.udid
+                    let devID = device.deviceID
                     index += 1
                     group.addTask {
-                        (currentIndex, await self.probeUSBApp(deviceIdentifier: deviceIdentifier, remotePort: remotePort))
+                        (currentIndex, await self.probeUSBApp(
+                            udid: udid,
+                            usbmuxdDeviceID: devID,
+                            remotePort: remotePort
+                        ))
                     }
                 }
             }
@@ -66,6 +73,32 @@ public final class LiveSessionService: SessionServiceProtocol, @unchecked Sendab
             }
             return ordered.sorted { $0.0 < $1.0 }.map(\.1)
         }
+    }
+
+    /// Query usbmuxd for all currently connected USB devices.
+    /// Runs the blocking usbmuxd I/O on a background thread to avoid stalling
+    /// Swift's cooperative thread pool.
+    private func usbmuxdDevices() async -> [LKUSBMuxdClient.Device] {
+        await withCheckedContinuation { continuation in
+            DispatchQueue.global(qos: .userInitiated).async {
+                let mux = LKUSBMuxdClient()
+                do {
+                    try mux.open()
+                    continuation.resume(returning: (try? mux.listDevices()) ?? [])
+                } catch {
+                    continuation.resume(returning: [])
+                }
+            }
+        }
+    }
+
+    /// Resolve a UDID string to the integer deviceID used by usbmuxd.
+    private func usbmuxdDeviceID(for udid: String) -> Int? {
+        // Synchronous helper used only in non-async contexts (connectClient).
+        // Fast path: talk to the local usbmuxd Unix socket.
+        let mux = LKUSBMuxdClient()
+        guard let _ = try? mux.open() else { return nil }
+        return (try? mux.listDevices())?.first { $0.udid == udid }?.deviceID
     }
 
     private func probeSimulatorApp(host: String, port: Int) async -> LKDiscoveryProbe {
@@ -97,75 +130,88 @@ public final class LiveSessionService: SessionServiceProtocol, @unchecked Sendab
         }
     }
 
-    private func probeUSBApp(deviceIdentifier: String, remotePort: Int) async -> LKDiscoveryProbe {
-        let localPort = usbForwardManager.suggestedLocalPort(deviceIdentifier: deviceIdentifier, remotePort: remotePort)
-        let temporaryForward: LKUSBForwardRecord
-        do {
-            temporaryForward = try usbForwardManager.startTemporaryForward(
-                deviceIdentifier: deviceIdentifier,
-                remotePort: remotePort,
-                preferredLocalPort: localPort
-            )
-        } catch {
+    /// Probe a real device for a LookinServer on `remotePort` using a direct usbmuxd
+    /// tunnel – no iproxy process required.  The usbmuxd device whose UDID matches
+    /// `udid` is looked up by `deviceID`; after the tunnel is established the
+    /// LookinServer port is probed exactly like a simulator port.
+    ///
+    /// All blocking usbmuxd I/O runs on a background DispatchQueue thread so it never
+    /// stalls Swift's cooperative thread pool.
+    private func probeUSBApp(udid: String, usbmuxdDeviceID: Int, remotePort: Int) async -> LKDiscoveryProbe {
+        // Get the fd on a background thread (blocking usbmuxd I/O).
+        let fdResult: Result<Int32, Error> = await withCheckedContinuation { cont in
+            DispatchQueue.global(qos: .userInitiated).async {
+                let mux = LKUSBMuxdClient()
+                do {
+                    try mux.open()
+                    let fd = try mux.connectToDevice(deviceID: usbmuxdDeviceID, port: UInt16(remotePort))
+                    cont.resume(returning: .success(fd))
+                } catch {
+                    cont.resume(returning: .failure(error))
+                }
+            }
+        }
+        let fd: Int32
+        switch fdResult {
+        case .success(let f): fd = f
+        case .failure(let error):
             return LKDiscoveryProbe(
-                host: "127.0.0.1",
-                port: localPort,
-                deviceType: .device,
-                deviceIdentifier: deviceIdentifier,
-                remotePort: remotePort,
-                status: .connectionFailed,
-                detail: error.localizedDescription
+                host: "127.0.0.1", port: remotePort, deviceType: .device,
+                deviceIdentifier: udid, remotePort: remotePort,
+                status: .connectionFailed, detail: error.localizedDescription
             )
         }
-        defer {
-            usbForwardManager.stopForward(temporaryForward)
-        }
-
         let client = LKProtocolClient()
         do {
-            try await client.connect(host: "127.0.0.1", port: localPort)
+            try await client.connectViaUSB(fd: fd)
             let appInfo = try await client.fetchAppInfo(needImages: false)
             client.disconnect()
             let app = LKBridgeConverter.convertAppInfo(
                 appInfo,
                 host: "127.0.0.1",
-                port: localPort,
+                port: remotePort,
                 remotePort: remotePort,
                 deviceType: .device,
-                deviceIdentifier: deviceIdentifier
+                deviceIdentifier: udid
             )
             return LKDiscoveryProbe(
-                host: "127.0.0.1",
-                port: localPort,
-                deviceType: .device,
-                deviceIdentifier: deviceIdentifier,
-                remotePort: remotePort,
-                status: .discovered,
-                app: app
+                host: "127.0.0.1", port: remotePort, deviceType: .device,
+                deviceIdentifier: udid, remotePort: remotePort,
+                status: .discovered, app: app
             )
         } catch let error as LookinCoreError {
             client.disconnect()
             return LKDiscoveryProbe(
-                host: "127.0.0.1",
-                port: localPort,
-                deviceType: .device,
-                deviceIdentifier: deviceIdentifier,
-                remotePort: remotePort,
-                status: mapProbeStatus(error),
-                detail: error.localizedDescription
+                host: "127.0.0.1", port: remotePort, deviceType: .device,
+                deviceIdentifier: udid, remotePort: remotePort,
+                status: mapProbeStatus(error), detail: error.localizedDescription
             )
         } catch {
             client.disconnect()
             return LKDiscoveryProbe(
-                host: "127.0.0.1",
-                port: localPort,
-                deviceType: .device,
-                deviceIdentifier: deviceIdentifier,
-                remotePort: remotePort,
-                status: .protocolError,
-                detail: error.localizedDescription
+                host: "127.0.0.1", port: remotePort, deviceType: .device,
+                deviceIdentifier: udid, remotePort: remotePort,
+                status: .protocolError, detail: error.localizedDescription
             )
         }
+    }
+
+    // Keep the old iproxy-based method signature for callers that still provide UDID strings
+    // (legacy path used by discoverApp(onPort:)).
+    private func probeUSBApp(deviceIdentifier udid: String, remotePort: Int) async -> LKDiscoveryProbe {
+        // Resolve UDID → usbmuxd deviceID
+        guard let deviceID = usbmuxdDeviceID(for: udid) else {
+            return LKDiscoveryProbe(
+                host: "127.0.0.1",
+                port: remotePort,
+                deviceType: .device,
+                deviceIdentifier: udid,
+                remotePort: remotePort,
+                status: .connectionFailed,
+                detail: "Device \(udid) not found in usbmuxd device list"
+            )
+        }
+        return await probeUSBApp(udid: udid, usbmuxdDeviceID: deviceID, remotePort: remotePort)
     }
 
     public func connect(appIdentifier: String) async throws -> LKSessionDescriptor {
@@ -188,13 +234,7 @@ public final class LiveSessionService: SessionServiceProtocol, @unchecked Sendab
             client.disconnect()
             clients.removeValue(forKey: port)
         }
-        if let app = session?.app, app.deviceType == .device {
-            usbForwardManager.stopForward(
-                deviceIdentifier: app.deviceIdentifier,
-                remotePort: app.remotePort,
-                localPort: app.port
-            )
-        }
+        // No iproxy process to clean up – usbmuxd tunnels close with the fd.
         // Only clear active session and store if it matches the disconnected one
         if activeSession?.sessionId == sessionId {
             activeClient = nil
@@ -386,9 +426,9 @@ public final class LiveSessionService: SessionServiceProtocol, @unchecked Sendab
             return probe.app
         }
 
-        let deviceIdentifiers = usbForwardManager.connectedDeviceIdentifiers()
-        for deviceIdentifier in deviceIdentifiers {
-            let probe = await probeUSBApp(deviceIdentifier: deviceIdentifier, remotePort: port)
+        let devices = await usbmuxdDevices()
+        for device in devices {
+            let probe = await probeUSBApp(udid: device.udid, usbmuxdDeviceID: device.deviceID, remotePort: port)
             if let app = probe.app {
                 return app
             }
@@ -501,22 +541,37 @@ public final class LiveSessionService: SessionServiceProtocol, @unchecked Sendab
             return existing
         }
 
-        let port: Int
+        let client = LKProtocolClient()
+
         if app.deviceType == .device {
-            guard let deviceIdentifier = app.deviceIdentifier, let remotePort = app.remotePort else {
+            // Connect via usbmuxd tunnel – no iproxy process needed.
+            // All blocking muxd I/O runs on a background thread.
+            guard let udid = app.deviceIdentifier, let remotePort = app.remotePort else {
                 throw LookinCoreError.connectionFailed(host: app.host, port: app.port)
             }
-            port = try usbForwardManager.ensureForward(
-                deviceIdentifier: deviceIdentifier,
-                remotePort: remotePort,
-                preferredLocalPort: app.port
-            )
+            let fd: Int32 = try await withCheckedThrowingContinuation { cont in
+                DispatchQueue.global(qos: .userInitiated).async {
+                    let mux = LKUSBMuxdClient()
+                    do {
+                        try mux.open()
+                        guard let deviceID = (try? mux.listDevices())?.first(where: { $0.udid == udid })?.deviceID else {
+                            cont.resume(throwing: LookinCoreError.protocolError(
+                                reason: "Device \(udid) not found by usbmuxd. Ensure it is connected via USB."
+                            ))
+                            return
+                        }
+                        let connFd = try mux.connectToDevice(deviceID: deviceID, port: UInt16(remotePort))
+                        cont.resume(returning: connFd)
+                    } catch {
+                        cont.resume(throwing: error)
+                    }
+                }
+            }
+            try await client.connectViaUSB(fd: fd)
         } else {
-            port = app.port
+            try await client.connect(host: app.host, port: app.port)
         }
 
-        let client = LKProtocolClient()
-        try await client.connect(host: app.host, port: port)
         clients[app.port] = client
         return client
     }

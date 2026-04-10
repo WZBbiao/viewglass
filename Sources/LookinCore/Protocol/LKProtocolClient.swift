@@ -3,7 +3,7 @@ import LookinSharedBridge
 
 /// High-level protocol client that handles serialization and request lifecycle.
 public final class LKProtocolClient: @unchecked Sendable {
-    private var connection: LKTCPConnection?
+    private var connection: (any LKConnectionProtocol)?
     private var tagCounter: UInt32 = 1
 
     // MARK: - Hierarchy cache
@@ -27,13 +27,20 @@ public final class LKProtocolClient: @unchecked Sendable {
 
     public init() {}
 
-    /// Try to connect to a LookinServer on a specific port.
+    /// Connect to a LookinServer via TCP (simulator or WiFi LAN).
     public func connect(host: String = "127.0.0.1", port: Int) async throws {
         let conn = LKTCPConnection(host: host, port: port)
         try await conn.connect()
         self.connection = conn
+        try await ping()
+    }
 
-        // Send ping to verify connection
+    /// Connect to a LookinServer on a USB-attached device using a pre-established
+    /// usbmuxd tunnel file descriptor.  The fd must have been obtained from
+    /// LKUSBMuxdClient.connectToDevice(deviceID:port:).
+    public func connectViaUSB(fd: Int32) async throws {
+        let conn = LKUSBMuxConnection(fd: fd)
+        self.connection = conn
         try await ping()
     }
 
@@ -47,8 +54,7 @@ public final class LKProtocolClient: @unchecked Sendable {
     }
 
     public var isConnected: Bool {
-        if case .connected = connection?.state { return true }
-        return false
+        connection?.isConnected ?? false
     }
 
     private func nextTag() -> UInt32 {

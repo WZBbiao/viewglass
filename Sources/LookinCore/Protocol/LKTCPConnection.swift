@@ -14,7 +14,7 @@ import Network
 /// - `drainPendingData(timeoutMs:)` is `async` so the caller never blocks a thread.
 /// - Explicit `cancel()` in `disconnect()` sends FIN (not RST) as long as the receive
 ///   buffer has been drained beforehand by `drainPendingData`.
-public final class LKTCPConnection: @unchecked Sendable {
+public final class LKTCPConnection: LKConnectionProtocol, @unchecked Sendable {
 
     public let host: String
     public let port: Int
@@ -53,7 +53,7 @@ public final class LKTCPConnection: @unchecked Sendable {
         )
 
         try await withCheckedThrowingContinuation { (cont: CheckedContinuation<Void, Error>) in
-            let once = Once()
+            let once = LKOnce()
 
             c.stateUpdateHandler = { [weak self] newState in
                 switch newState {
@@ -159,11 +159,24 @@ public final class LKTCPConnection: @unchecked Sendable {
     }
 
     /// Read exactly `count` bytes, accumulating chunks as they arrive.
-    private func receiveExactly(_ count: Int) async throws -> Data {
+    ///
+    /// A `readTimeoutSeconds` watchdog fires on `ioQueue` if the server hasn't
+    /// delivered the required bytes within that window.  This replaces the old BSD-
+    /// socket `SO_RCVTIMEO` behaviour that prevented probes from hanging indefinitely
+    /// when a port has no listener or the server stops responding.
+    private func receiveExactly(_ count: Int, readTimeoutSeconds: TimeInterval = 5) async throws -> Data {
         guard count > 0 else { return Data() }
         guard let c = nwConn else { throw LookinCoreError.sessionNotConnected }
         return try await withCheckedThrowingContinuation { k in
-            accumulate(conn: c, need: count, buffer: Data(), continuation: k)
+            let once = LKOnce()
+            // Timeout watchdog
+            ioQueue.asyncAfter(deadline: .now() + readTimeoutSeconds) {
+                guard once.fire() else { return }
+                k.resume(throwing: LookinCoreError.protocolError(
+                    reason: "Read timeout after \(readTimeoutSeconds)s"
+                ))
+            }
+            accumulate(conn: c, need: count, buffer: Data(), once: once, continuation: k)
         }
     }
 
@@ -172,11 +185,13 @@ public final class LKTCPConnection: @unchecked Sendable {
         conn: NWConnection,
         need: Int,
         buffer: Data,
+        once: LKOnce,
         continuation: CheckedContinuation<Data, Error>
     ) {
         let remaining = need - buffer.count
         conn.receive(minimumIncompleteLength: 1, maximumLength: remaining) { data, _, isDone, err in
             if let err = err {
+                guard once.fire() else { return }
                 continuation.resume(throwing: LookinCoreError.protocolError(
                     reason: err.localizedDescription
                 ))
@@ -186,30 +201,19 @@ public final class LKTCPConnection: @unchecked Sendable {
             if let d = data { next.append(contentsOf: d) }
 
             if next.count >= need {
+                guard once.fire() else { return }
                 continuation.resume(returning: next)
             } else if isDone {
+                guard once.fire() else { return }
                 continuation.resume(throwing: LookinCoreError.protocolError(
                     reason: "Connection closed (\(next.count)/\(need) bytes received)"
                 ))
             } else {
-                self.accumulate(conn: conn, need: need, buffer: next, continuation: continuation)
+                // Check if the timeout already fired before recursing.
+                self.accumulate(conn: conn, need: need, buffer: next, once: once, continuation: continuation)
             }
         }
     }
 }
 
-// MARK: - Once
-
-/// Thread-safe one-shot flag used to guard continuations from being resumed twice.
-private final class Once: @unchecked Sendable {
-    private let lock = NSLock()
-    private var _fired = false
-
-    /// Returns `true` the first time it is called; `false` on every subsequent call.
-    func fire() -> Bool {
-        lock.lock(); defer { lock.unlock() }
-        guard !_fired else { return false }
-        _fired = true
-        return true
-    }
-}
+// LKOnce is defined in LKConnectionProtocol.swift
