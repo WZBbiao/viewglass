@@ -161,4 +161,24 @@ public final class MockMutationService: MutationServiceProtocol, @unchecked Send
         }
         return LKModificationResult(nodeOid: nodeOid, attributeKey: "contentOffset", previousValue: "0,0", newValue: "\(targetOffset.x),\(targetOffset.y)", success: true)
     }
+
+    public func triggerSwipe(
+        nodeOid: UInt,
+        direction: LKSwipeDirection,
+        distance: CGFloat,
+        animated: Bool,
+        sessionId: String
+    ) async throws -> LKActionResult {
+        if shouldFail {
+            throw LookinCoreError.actionFailed(action: "swipe", reason: "Mock failure")
+        }
+        return LKActionResult(
+            action: "swipe",
+            nodeOid: nodeOid,
+            targetClass: "UIScrollView",
+            mode: .semantic,
+            success: true,
+            detail: "swiped \(direction.rawValue) by \(Int(distance))pt\(animated ? " (animated)" : "")"
+        )
+    }
 }

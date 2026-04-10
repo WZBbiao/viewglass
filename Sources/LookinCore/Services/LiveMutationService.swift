@@ -180,6 +180,62 @@ public final class LiveMutationService: MutationServiceProtocol, @unchecked Send
         )
     }
 
+    public func triggerSwipe(
+        nodeOid: UInt,
+        direction: LKSwipeDirection,
+        distance: CGFloat,
+        animated: Bool,
+        sessionId: String
+    ) async throws -> LKActionResult {
+        let client = try await sessionService.getClient(for: sessionId)
+        let hierarchy = try await client.fetchHierarchy()
+        let target = try resolveTargetMetadata(nodeOid: nodeOid, isLayerProperty: false, hierarchy: hierarchy)
+
+        let scrollableClasses = ["UIScrollView", "UITableView", "UICollectionView", "UITextView", "WKWebView"]
+        guard scrollableClasses.contains(where: { target.classChain.contains($0) || target.className == $0 }) else {
+            throw LookinCoreError.actionFailed(
+                action: "swipe",
+                reason: "\(target.className)(oid:\(nodeOid)) is not a UIScrollView subclass. " +
+                    "Swipe is only supported on UIScrollView and its subclasses. " +
+                    "Use 'gesture' to inspect gesture recognizers on non-scrollable views."
+            )
+        }
+
+        // Read current contentOffset
+        let currentOffset: CGPoint
+        if let (desc, _) = try? await client.invokeMethod(oid: target.objectOid, selector: "contentOffset"),
+           let desc,
+           let nsVal = LKAttributeRegistry.parseValue(desc, attrType: .cgPoint) as? NSValue {
+            currentOffset = CGPoint(x: nsVal.pointValue.x, y: nsVal.pointValue.y)
+        } else {
+            currentOffset = .zero
+        }
+
+        let targetOffset: CGPoint
+        switch direction {
+        case .up:    targetOffset = CGPoint(x: currentOffset.x, y: currentOffset.y + distance)
+        case .down:  targetOffset = CGPoint(x: currentOffset.x, y: max(0, currentOffset.y - distance))
+        case .left:  targetOffset = CGPoint(x: currentOffset.x + distance, y: currentOffset.y)
+        case .right: targetOffset = CGPoint(x: max(0, currentOffset.x - distance), y: currentOffset.y)
+        }
+
+        if animated {
+            _ = try await scrollAnimated(nodeOid: nodeOid, targetOffset: targetOffset, sessionId: sessionId)
+        } else {
+            let value = "\(targetOffset.x),\(targetOffset.y)"
+            _ = try await setAttribute(nodeOid: nodeOid, key: "contentOffset", value: value, sessionId: sessionId)
+        }
+
+        return LKActionResult(
+            action: "swipe",
+            nodeOid: nodeOid,
+            targetClass: target.className,
+            mode: .semantic,
+            success: true,
+            detail: "swiped \(direction.rawValue) by \(Int(distance))pt → contentOffset (\(Int(targetOffset.x)),\(Int(targetOffset.y)))\(animated ? " (animated)" : "")"
+        )
+    }
+
     public func invokeMethod(
         nodeOid: UInt,
         selector: String,

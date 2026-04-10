@@ -51,4 +51,14 @@ public protocol MutationServiceProtocol: Sendable {
         targetOffset: CGPoint,
         sessionId: String
     ) async throws -> LKModificationResult
+
+    /// Swipe a UIScrollView by adjusting contentOffset in the given direction.
+    /// Fails with actionFailed if the target is not a UIScrollView subclass.
+    func triggerSwipe(
+        nodeOid: UInt,
+        direction: LKSwipeDirection,
+        distance: CGFloat,
+        animated: Bool,
+        sessionId: String
+    ) async throws -> LKActionResult
 }
