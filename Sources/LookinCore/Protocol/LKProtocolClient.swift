@@ -6,6 +6,25 @@ public final class LKProtocolClient: @unchecked Sendable {
     private var connection: LKTCPConnection?
     private var tagCounter: UInt32 = 1
 
+    // MARK: - Hierarchy cache
+    //
+    // fetchHierarchy() is called by LiveMutationService before every action to resolve
+    // nodeOid → objectOid + classChain.  OIDs are memory addresses of ObjC objects and
+    // remain stable as long as the view hierarchy doesn't structurally change (add/remove
+    // views).  Caching the last-fetched hierarchy eliminates a round-trip per action.
+    //
+    // Invalidation policy:
+    //   • After submitModification() – the server broadcasts display-item push frames,
+    //     indicating the UI changed; OIDs of existing nodes are still valid but we
+    //     invalidate as a safe default.
+    //   • After invokeMethod() – a custom method could restructure the hierarchy.
+    //   • TTL = 30 s – safety net for long-lived daemon connections.
+    //   • forceRefresh: true – used by explicit hierarchy commands (viewglass hierarchy).
+    private var _cachedHierarchy: LookinHierarchyInfo?
+    private var _hierarchyCachedAt: Date?
+    private let _cacheLock = NSLock()
+    private static let hierarchyCacheTTL: TimeInterval = 30
+
     public init() {}
 
     /// Try to connect to a LookinServer on a specific port.
@@ -77,7 +96,23 @@ public final class LKProtocolClient: @unchecked Sendable {
     }
 
     /// Fetch the full view hierarchy.
-    public func fetchHierarchy() async throws -> LookinHierarchyInfo {
+    ///
+    /// - Parameter forceRefresh: When `true`, always fetches from the server even if a
+    ///   cached result is available.  Pass `true` for explicit user-facing hierarchy
+    ///   commands; leave `false` (default) for internal mutation/action use where a
+    ///   cached hierarchy is sufficient to resolve OID mappings.
+    public func fetchHierarchy(forceRefresh: Bool = false) async throws -> LookinHierarchyInfo {
+        if !forceRefresh {
+            _cacheLock.lock()
+            let cached = _cachedHierarchy
+            let cachedAt = _hierarchyCachedAt
+            _cacheLock.unlock()
+            if let h = cached,
+               let t = cachedAt,
+               Date().timeIntervalSince(t) < Self.hierarchyCacheTTL {
+                return h
+            }
+        }
         let requestData: NSDictionary = [
             "clientVersion": LOOKIN_SERVER_READABLE_VERSION as Any
         ]
@@ -85,7 +120,20 @@ public final class LKProtocolClient: @unchecked Sendable {
         guard let hierarchy = response.data as? LookinHierarchyInfo else {
             throw LookinCoreError.protocolError(reason: "Expected LookinHierarchyInfo in response")
         }
+        _cacheLock.lock()
+        _cachedHierarchy = hierarchy
+        _hierarchyCachedAt = Date()
+        _cacheLock.unlock()
         return hierarchy
+    }
+
+    /// Discard the cached hierarchy.  Call after any operation that may structurally
+    /// change the view tree so the next fetchHierarchy() gets a fresh snapshot.
+    public func invalidateHierarchyCache() {
+        _cacheLock.lock()
+        _cachedHierarchy = nil
+        _hierarchyCachedAt = nil
+        _cacheLock.unlock()
     }
 
     /// Fetch display item details, including screenshots and basis visual data.
@@ -122,6 +170,8 @@ public final class LKProtocolClient: @unchecked Sendable {
             ? "The method was invoked successfully and no value was returned."
             : rawDescription
         let object = dict["object"]
+        // A custom method may restructure the view hierarchy.
+        invalidateHierarchyCache()
         return (description, object)
     }
 
@@ -143,6 +193,9 @@ public final class LKProtocolClient: @unchecked Sendable {
         // We must drain them to keep the connection clean for the next request.
         // drainPendingData is now truly async – no thread is blocked during the wait.
         await connection.drainPendingData(timeoutMs: 2000)
+
+        // The UI has changed; future hierarchy lookups must go to the server.
+        invalidateHierarchyCache()
     }
 
     /// Fetch all selector names for a class.

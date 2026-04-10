@@ -28,7 +28,8 @@ public final class LiveHierarchyService: HierarchyServiceProtocol, @unchecked Se
                     throw LookinCoreError.sessionNotConnected
                 }
 
-                let hierarchyInfo = try await client.fetchHierarchy()
+                // User explicitly requested the hierarchy – always fetch fresh from server.
+                let hierarchyInfo = try await client.fetchHierarchy(forceRefresh: true)
                 let snapshot = LKBridgeConverter.convertHierarchy(hierarchyInfo, app: appDescriptor)
                 cachedSnapshot = snapshot
                 return snapshot

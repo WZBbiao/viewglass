@@ -35,7 +35,8 @@ public final class LiveNodeQueryService: NodeQueryServiceProtocol, @unchecked Se
         for attempt in 0..<2 {
             do {
                 let client = try await sessionService.getClient(for: sessionId)
-                let hierarchy = try await client.fetchHierarchy()
+                // Attribute inspection is user-facing; always get fresh data.
+                let hierarchy = try await client.fetchHierarchy(forceRefresh: true)
                 let targetOid = resolveAttributeObjectOid(nodeOid: oid, hierarchy: hierarchy)
                 let groups = try await client.fetchAllAttrGroups(oid: targetOid)
                 return groups.map { LKBridgeConverter.convertAttributesGroup($0) }
