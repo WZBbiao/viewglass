@@ -33,6 +33,6 @@
   `scroll --to` 直接跳转 contentOffset，无平滑动画。
   修复：增加 `--animated` flag，启用时通过 `setContentOffset:animated:` 实现过渡。
 
-- [ ] **#8 screenshot node 截取 secure text field 时无警告** (`ScreenshotCommand`)
+- [x] **#8 screenshot node 截取 secure text field 时无警告** (`ScreenshotCommand`)
   对 UITextField (secureTextEntry) 截图结果为空白，没有任何提示。
   修复：截图前检测目标是 UITextField，截图后输出 warning 说明安全字段内容不可见。

@@ -88,6 +88,11 @@ struct ScreenshotNode: AsyncParsableCommand {
                 preferredDeviceIdentifier: udid
             )
             OutputFormatter.printScreenshot(ref, mode: json ? .json : .human)
+            // Warn if the target is a UITextField — secure text fields render blank
+            // in Lookin captures because iOS redacts secure content outside the app process.
+            if resolved.node.className == "UITextField" {
+                printStderr("Warning: UITextField detected. If secureTextEntry is enabled, the content will appear blank in the screenshot.")
+            }
         } catch let error as LookinCoreError {
             if json {
                 JSONOutput.printError(error: error)
