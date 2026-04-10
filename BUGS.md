@@ -11,7 +11,7 @@
   `control tap` 只发送 `UIControlEventTouchUpInside`，但 UISwitch 的切换需在 touch tracking 期间完成，单纯发送此事件不改变 `isOn`。
   修复：检测到 UISwitch 时，读取当前 `isOn`，通过 `setAttribute` 取反，再发送 `UIControlEventValueChanged`。
 
-- [ ] **#3 locate 无法按文本内容搜索** (`LKLocator`)
+- [x] **#3 locate 无法按文本内容搜索** (`LKLocator`)
   `viewglass locate "Open Long Feed"` 返回 0 结果（字符串被当作类名查询处理）。
   修复：在 `LKLocator.parse` 中，含空格的字符串 fallback 为 `accessibilityLabel` 类型，而非 `query`。
 

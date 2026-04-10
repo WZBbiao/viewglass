@@ -43,6 +43,11 @@ public struct LKLocator: Codable, Equatable, Sendable {
         if trimmed.hasPrefix("controller:") {
             return LKLocator(rawValue: input, kind: .controller, value: String(trimmed.dropFirst("controller:".count)))
         }
+        // Strings containing spaces are unlikely to be class names — treat them as
+        // accessibilityLabel searches so `locate "Open Long Feed"` works intuitively.
+        if trimmed.contains(" ") {
+            return LKLocator(rawValue: input, kind: .accessibilityLabel, value: trimmed)
+        }
         return LKLocator(rawValue: input, kind: .query, value: trimmed)
     }
 }
