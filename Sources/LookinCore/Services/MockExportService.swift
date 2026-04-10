@@ -67,6 +67,31 @@ public enum HierarchyTextFormatter {
         return lines.joined(separator: "\n")
     }
 
+    /// Compact JSON representation: only oid/class/frame/label/hidden/children.
+    public static func compactSnapshot(from snapshot: LKHierarchySnapshot) -> LKCompactSnapshot {
+        LKCompactSnapshot(
+            app: "\(snapshot.appInfo.appName) (\(snapshot.appInfo.bundleIdentifier))",
+            nodeCount: snapshot.totalNodeCount,
+            nodes: snapshot.windows.map { compactTree($0) }
+        )
+    }
+
+    private static func compactTree(_ tree: LKNodeTree) -> LKCompactNode {
+        let node = tree.node
+        let f = node.frame
+        let label = node.customDisplayTitle ?? node.accessibilityLabel
+        let children = tree.children.isEmpty ? nil : tree.children.map { compactTree($0) }
+        return LKCompactNode(
+            oid: node.oid,
+            className: node.className,
+            frame: [Int(f.x), Int(f.y), Int(f.width), Int(f.height)],
+            label: label,
+            a11yId: node.accessibilityIdentifier,
+            hidden: node.isVisible ? nil : true,
+            children: children
+        )
+    }
+
     private static func formatCompactTree(_ tree: LKNodeTree, indent: Int, lines: inout [String]) {
         let node = tree.node
         let f = node.frame

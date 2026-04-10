@@ -83,10 +83,11 @@ public enum OutputFormatter {
 
     /// Compact hierarchy: one line per node with only oid/className/frame/label.
     /// Designed for AI agent consumption — minimal noise, maximum navigability.
+    /// With --json: outputs reduced JSON (oid/class/frame/label/hidden/children only).
     public static func printHierarchyCompact(_ snapshot: LKHierarchySnapshot, mode: OutputMode) {
         switch mode {
         case .json:
-            JSONOutput.print(snapshot)
+            JSONOutput.print(HierarchyTextFormatter.compactSnapshot(from: snapshot))
         case .human:
             print(HierarchyTextFormatter.formatCompact(snapshot: snapshot))
         }

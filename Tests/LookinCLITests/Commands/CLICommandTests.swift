@@ -93,6 +93,54 @@ final class CLICommandTests: XCTestCase {
         XCTAssertTrue(viewLine!.hasPrefix("  "), "UIView child should be indented")
     }
 
+    // Test hierarchy --compact --json outputs reduced JSON (not full snapshot)
+    func testHierarchyCompactJSONFlow() async throws {
+        let services = ServiceContainer.makeMock()
+        let snapshot = try await services.hierarchy.fetchHierarchy(sessionId: "test")
+        let compact = HierarchyTextFormatter.compactSnapshot(from: snapshot)
+
+        // Top-level fields
+        XCTAssertTrue(compact.app.contains("DemoApp"))
+        XCTAssertTrue(compact.app.contains("com.example.demo"))
+        XCTAssertEqual(compact.nodeCount, 8)
+        XCTAssertEqual(compact.nodes.count, 1, "one UIWindow root")
+
+        // Flatten all compact nodes for assertions
+        func flatten(_ nodes: [LKCompactNode]) -> [LKCompactNode] {
+            nodes.flatMap { [$0] + flatten($0.children ?? []) }
+        }
+        let all = flatten(compact.nodes)
+        XCTAssertEqual(all.count, 8)
+
+        let button = all.first(where: { $0.oid == 4 })!
+        XCTAssertEqual(button.className, "UIButton")
+        XCTAssertEqual(button.frame, [50, 400, 100, 44])
+
+        let labelNode = all.first(where: { $0.oid == 5 })!
+        XCTAssertEqual(labelNode.label, "Tap me")
+
+        let vcView = all.first(where: { $0.oid == 2 })!
+        XCTAssertEqual(vcView.label, "ViewController.view")
+
+        let hiddenBtn = all.first(where: { $0.oid == 8 })!
+        XCTAssertEqual(hiddenBtn.hidden, true)
+
+        // Visible nodes should NOT have `hidden` set (nil = omitted from JSON)
+        let visibleBtn = all.first(where: { $0.oid == 4 })!
+        XCTAssertNil(visibleBtn.hidden, "visible nodes should have nil hidden")
+
+        // JSON encoding: verify compact keys are used, verbose keys are absent
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = .sortedKeys
+        let data = try encoder.encode(compact)
+        let json = String(data: data, encoding: .utf8)!
+        XCTAssertTrue(json.contains("\"class\""), "should use 'class' key")
+        XCTAssertFalse(json.contains("\"alpha\""), "should not include alpha")
+        XCTAssertFalse(json.contains("\"bounds\""), "should not include bounds")
+        XCTAssertFalse(json.contains("\"address\""), "should not include address")
+        XCTAssertFalse(json.contains("\"hidden\":false"), "false hidden should be omitted")
+    }
+
     // Test node get flow
     func testNodeGetFlow() async throws {
         let services = ServiceContainer.makeMock()
