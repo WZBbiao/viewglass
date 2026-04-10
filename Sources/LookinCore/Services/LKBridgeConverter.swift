@@ -66,11 +66,13 @@ public enum LKBridgeConverter {
     ) -> LKNode {
         let viewOid = item.viewObject?.oid
         let layerOid = item.layerObject?.oid
-        let oid = layerOid ?? viewOid ?? 0
+        // Use viewOid as the primary node identifier so that hierarchy display
+        // and action targets (tap/input/attr set) reference the same OID.
+        let oid = viewOid ?? layerOid ?? 0
         let primaryOid = viewOid ?? layerOid ?? 0
         let oidType: LKNodeOIDType = {
-            if layerOid != nil { return .layer }
             if viewOid != nil { return .view }
+            if layerOid != nil { return .layer }
             return .unknown
         }()
         let className = item.viewObject?.rawClassName() ?? item.layerObject?.rawClassName() ?? "Unknown"
