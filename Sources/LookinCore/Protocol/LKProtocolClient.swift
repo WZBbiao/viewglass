@@ -141,8 +141,8 @@ public final class LKProtocolClient: @unchecked Sendable {
 
         // After a modification, the server sends push frames with display item updates.
         // We must drain them to keep the connection clean for the next request.
-        // Use a short socket timeout to read until no more data arrives.
-        connection.drainPendingData(timeoutMs: 2000)
+        // drainPendingData is now truly async – no thread is blocked during the wait.
+        await connection.drainPendingData(timeoutMs: 2000)
     }
 
     /// Fetch all selector names for a class.

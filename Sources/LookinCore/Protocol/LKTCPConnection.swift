@@ -1,11 +1,20 @@
 import Foundation
+import Network
 
-/// Low-level TCP connection using BSD sockets for reliable close behavior.
-/// NWConnection's process-exit cleanup sends RST instead of FIN, which causes
-/// LookinServer's Peertalk to enter error state and stop re-listening.
+/// Low-level TCP connection using NWConnection for truly async (non-blocking) I/O.
+///
+/// Replaces the previous BSD-socket implementation that called blocking `recv()` inside
+/// Swift async functions, which stalled cooperative thread-pool threads and caused
+/// cascading latency across the entire command.
+///
+/// Key design decisions:
+/// - All I/O is dispatched on `ioQueue`; Swift concurrency continuations bridge results back.
+/// - `receiveExactly(_:)` accumulates chunks recursively until the required byte count is
+///   reached, matching the Peertalk frame protocol without over-reading.
+/// - `drainPendingData(timeoutMs:)` is `async` so the caller never blocks a thread.
+/// - Explicit `cancel()` in `disconnect()` sends FIN (not RST) as long as the receive
+///   buffer has been drained beforehand by `drainPendingData`.
 public final class LKTCPConnection: @unchecked Sendable {
-    private var socketFD: Int32 = -1
-    private let lock = NSLock()
 
     public let host: String
     public let port: Int
@@ -19,7 +28,9 @@ public final class LKTCPConnection: @unchecked Sendable {
     }
 
     public private(set) var state: State = .idle
-    private var recvBuffer = Data()
+
+    private var nwConn: NWConnection?
+    private let ioQueue = DispatchQueue(label: "viewglass.lktcp.io", qos: .userInitiated)
 
     public init(host: String, port: Int) {
         self.host = host
@@ -27,189 +38,178 @@ public final class LKTCPConnection: @unchecked Sendable {
     }
 
     deinit {
-        if socketFD >= 0 {
-            close(socketFD)
-        }
+        nwConn?.cancel()
     }
+
+    // MARK: - Connect / Disconnect
 
     public func connect(timeout: TimeInterval = 0.5) async throws {
         state = .connecting
 
-        socketFD = socket(AF_INET, SOCK_STREAM, 0)
-        guard socketFD >= 0 else {
-            state = .failed(LookinCoreError.connectionFailed(host: host, port: port))
-            throw LookinCoreError.connectionFailed(host: host, port: port)
-        }
+        let c = NWConnection(
+            host: NWEndpoint.Host(host),
+            port: NWEndpoint.Port(integerLiteral: UInt16(port)),
+            using: .tcp
+        )
 
-        // Set non-blocking for timeout support
-        var flags = fcntl(socketFD, F_GETFL, 0)
-        _ = fcntl(socketFD, F_SETFL, flags | O_NONBLOCK)
+        try await withCheckedThrowingContinuation { (cont: CheckedContinuation<Void, Error>) in
+            let once = Once()
 
-        var addr = sockaddr_in()
-        addr.sin_len = UInt8(MemoryLayout<sockaddr_in>.size)
-        addr.sin_family = sa_family_t(AF_INET)
-        addr.sin_port = UInt16(port).bigEndian
-        let ipConversionResult = host.withCString { cString in
-            inet_pton(AF_INET, cString, &addr.sin_addr)
-        }
-        guard ipConversionResult == 1 else {
-            close(socketFD)
-            socketFD = -1
-            state = .failed(LookinCoreError.connectionFailed(host: host, port: port))
-            throw LookinCoreError.connectionFailed(host: host, port: port)
-        }
+            c.stateUpdateHandler = { [weak self] newState in
+                switch newState {
+                case .ready:
+                    guard once.fire() else { return }
+                    self?.state = .connected
+                    cont.resume()
+                case .failed(let err):
+                    guard once.fire() else { return }
+                    self?.state = .failed(err)
+                    c.cancel()
+                    cont.resume(throwing: LookinCoreError.protocolError(
+                        reason: "Connect failed: \(err.localizedDescription)"
+                    ))
+                case .cancelled:
+                    guard once.fire() else { return }
+                    cont.resume(throwing: LookinCoreError.connectionTimeout)
+                default:
+                    break
+                }
+            }
 
-        let connectResult = withUnsafePointer(to: &addr) { ptr in
-            ptr.withMemoryRebound(to: sockaddr.self, capacity: 1) { sockPtr in
-                Darwin.connect(socketFD, sockPtr, socklen_t(MemoryLayout<sockaddr_in>.size))
+            c.start(queue: ioQueue)
+
+            // Timeout watchdog – fires on ioQueue to stay serialised with state handler.
+            ioQueue.asyncAfter(deadline: .now() + timeout) {
+                guard once.fire() else { return }
+                c.cancel()
+                cont.resume(throwing: LookinCoreError.connectionTimeout)
             }
         }
 
-        if connectResult < 0 && errno != EINPROGRESS {
-            close(socketFD)
-            socketFD = -1
-            let error = LookinCoreError.protocolError(reason: "Connect failed: \(String(cString: strerror(errno)))")
-            state = .failed(error)
-            throw error
-        }
-
-        // Wait for connection with timeout using poll() to avoid fd_set packing issues.
-        var pollDescriptor = pollfd(fd: socketFD, events: Int16(POLLOUT), revents: 0)
-        let pollTimeout = Int32(timeout * 1000)
-        let pollResult = Darwin.poll(&pollDescriptor, 1, pollTimeout)
-
-        if pollResult <= 0 {
-            close(socketFD)
-            socketFD = -1
-            state = .failed(LookinCoreError.connectionTimeout)
-            throw LookinCoreError.connectionTimeout
-        }
-
-        // Check for connection error
-        var error: Int32 = 0
-        var errorLen = socklen_t(MemoryLayout<Int32>.size)
-        getsockopt(socketFD, SOL_SOCKET, SO_ERROR, &error, &errorLen)
-        if error != 0 {
-            close(socketFD)
-            socketFD = -1
-            let connectionError = LookinCoreError.protocolError(reason: "Connect failed: \(String(cString: strerror(error)))")
-            state = .failed(connectionError)
-            throw connectionError
-        }
-
-        // Set back to blocking mode
-        flags = fcntl(socketFD, F_GETFL, 0)
-        _ = fcntl(socketFD, F_SETFL, flags & ~O_NONBLOCK)
-
-        // Set read timeout
-        var readTimeout = timeval(tv_sec: 5, tv_usec: 0)
-        setsockopt(socketFD, SOL_SOCKET, SO_RCVTIMEO, &readTimeout, socklen_t(MemoryLayout<timeval>.size))
-
-        state = .connected
+        nwConn = c
     }
 
     public func disconnect() {
-        guard socketFD >= 0 else { return }
-
-        // Drain any pending data the server may have sent (push messages).
-        // Without draining, the server's write will fail when we close,
-        // causing Peertalk to enter error state and stop re-listening.
-        var drainTimeout = timeval(tv_sec: 0, tv_usec: 100_000) // 100ms
-        setsockopt(socketFD, SOL_SOCKET, SO_RCVTIMEO, &drainTimeout, socklen_t(MemoryLayout<timeval>.size))
-        var drainBuf = [UInt8](repeating: 0, count: 65536)
-        while recv(socketFD, &drainBuf, drainBuf.count, 0) > 0 {}
-
-        // Graceful shutdown — sends FIN, waits for server ACK
-        shutdown(socketFD, SHUT_WR)
-        // Read until server closes its end
-        while recv(socketFD, &drainBuf, drainBuf.count, 0) > 0 {}
-
-        close(socketFD)
-        socketFD = -1
+        nwConn?.cancel()
+        nwConn = nil
         state = .disconnected
     }
 
-    /// Send a Peertalk frame and receive the complete response frame.
+    public var isConnected: Bool {
+        if case .connected = state { return true }
+        return false
+    }
+
+    // MARK: - Frame I/O
+
+    /// Send a Peertalk request frame and receive the single response frame.
     public func sendRequest(type: UInt32, tag: UInt32, payload: Data = Data()) async throws -> LKFrame {
-        let frame = LKFrame(type: type, tag: tag, payload: payload)
-        let encoded = frame.encode()
-
-        // Send
-        try sendAll(encoded)
-
-        // Receive response frame
-        return try readFrame()
+        let encoded = LKFrame(type: type, tag: tag, payload: payload).encode()
+        try await sendAll(encoded)
+        return try await receiveFrame()
     }
 
-    /// Receive a single frame (for multi-frame responses).
+    /// Receive a single Peertalk frame (for multi-frame responses).
     public func receiveFrame() async throws -> LKFrame {
-        try readFrame()
+        let hdr = try await receiveExactly(LKFrame.headerSize)
+        guard let h = LKFrame.decodeHeader(hdr) else {
+            throw LookinCoreError.protocolError(reason: "Invalid frame header")
+        }
+        let body = h.payloadSize > 0
+            ? try await receiveExactly(Int(h.payloadSize))
+            : Data()
+        return LKFrame(type: h.type, tag: h.tag, payload: body)
     }
 
-    /// Drain any pending data from the server using a short timeout.
-    /// This prevents server-side errors when the connection is closed
-    /// while the server still has data to send.
-    public func drainPendingData(timeoutMs: Int32) {
-        guard socketFD >= 0 else { return }
-        var drainTimeout = timeval(tv_sec: 0, tv_usec: timeoutMs * 1000)
-        setsockopt(socketFD, SOL_SOCKET, SO_RCVTIMEO, &drainTimeout, socklen_t(MemoryLayout<timeval>.size))
-        var buf = [UInt8](repeating: 0, count: 65536)
-        while recv(socketFD, &buf, buf.count, 0) > 0 {}
-        // Restore normal timeout
-        var normalTimeout = timeval(tv_sec: 5, tv_usec: 0)
-        setsockopt(socketFD, SOL_SOCKET, SO_RCVTIMEO, &normalTimeout, socklen_t(MemoryLayout<timeval>.size))
-        // Clear the receive buffer
-        recvBuffer = Data()
-    }
-
-    // MARK: - Raw socket I/O
-
-    private func sendAll(_ data: Data) throws {
-        guard socketFD >= 0 else { throw LookinCoreError.sessionNotConnected }
-        var sent = 0
-        let total = data.count
-        try data.withUnsafeBytes { buffer in
-            guard let ptr = buffer.baseAddress else { return }
-            while sent < total {
-                let n = send(socketFD, ptr.advanced(by: sent), total - sent, 0)
-                if n < 0 {
-                    throw LookinCoreError.protocolError(reason: "Send failed: \(String(cString: strerror(errno)))")
+    /// Drain server-push frames for up to `timeoutMs` milliseconds.
+    ///
+    /// After a mutation LookinServer broadcasts display-update push frames.  If we close
+    /// the socket while those bytes are still in the TCP receive buffer, the OS will
+    /// send RST instead of FIN, which causes LookinServer's Peertalk to enter an error
+    /// state and stop accepting new connections.  Draining before `disconnect()` keeps
+    /// the server healthy.
+    public func drainPendingData(timeoutMs: Int32) async {
+        guard let c = nwConn else { return }
+        let deadline = Date().addingTimeInterval(Double(timeoutMs) / 1_000)
+        while Date() < deadline {
+            let gotData = await withCheckedContinuation { (k: CheckedContinuation<Bool, Never>) in
+                c.receive(minimumIncompleteLength: 1, maximumLength: 65_536) { data, _, _, _ in
+                    k.resume(returning: !(data?.isEmpty ?? true))
                 }
-                sent += n
+            }
+            if !gotData { break }
+        }
+    }
+
+    // MARK: - Private helpers
+
+    private func sendAll(_ data: Data) async throws {
+        guard let c = nwConn else { throw LookinCoreError.sessionNotConnected }
+        try await withCheckedThrowingContinuation { (k: CheckedContinuation<Void, Error>) in
+            c.send(content: data, completion: .contentProcessed { err in
+                if let err = err {
+                    k.resume(throwing: LookinCoreError.protocolError(
+                        reason: "Send failed: \(err.localizedDescription)"
+                    ))
+                } else {
+                    k.resume()
+                }
+            })
+        }
+    }
+
+    /// Read exactly `count` bytes, accumulating chunks as they arrive.
+    private func receiveExactly(_ count: Int) async throws -> Data {
+        guard count > 0 else { return Data() }
+        guard let c = nwConn else { throw LookinCoreError.sessionNotConnected }
+        return try await withCheckedThrowingContinuation { k in
+            accumulate(conn: c, need: count, buffer: Data(), continuation: k)
+        }
+    }
+
+    /// Recursive accumulator – called on `ioQueue` via NWConnection callbacks.
+    private func accumulate(
+        conn: NWConnection,
+        need: Int,
+        buffer: Data,
+        continuation: CheckedContinuation<Data, Error>
+    ) {
+        let remaining = need - buffer.count
+        conn.receive(minimumIncompleteLength: 1, maximumLength: remaining) { data, _, isDone, err in
+            if let err = err {
+                continuation.resume(throwing: LookinCoreError.protocolError(
+                    reason: err.localizedDescription
+                ))
+                return
+            }
+            var next = buffer
+            if let d = data { next.append(contentsOf: d) }
+
+            if next.count >= need {
+                continuation.resume(returning: next)
+            } else if isDone {
+                continuation.resume(throwing: LookinCoreError.protocolError(
+                    reason: "Connection closed (\(next.count)/\(need) bytes received)"
+                ))
+            } else {
+                self.accumulate(conn: conn, need: need, buffer: next, continuation: continuation)
             }
         }
     }
+}
 
-    private func readFrame() throws -> LKFrame {
-        // Read header
-        while recvBuffer.count < LKFrame.headerSize {
-            try readChunk()
-        }
+// MARK: - Once
 
-        guard let header = LKFrame.decodeHeader(recvBuffer) else {
-            throw LookinCoreError.protocolError(reason: "Invalid frame header")
-        }
+/// Thread-safe one-shot flag used to guard continuations from being resumed twice.
+private final class Once: @unchecked Sendable {
+    private let lock = NSLock()
+    private var _fired = false
 
-        let totalNeeded = LKFrame.headerSize + Int(header.payloadSize)
-
-        // Read payload
-        while recvBuffer.count < totalNeeded {
-            try readChunk()
-        }
-
-        let payloadData = recvBuffer.subdata(in: LKFrame.headerSize..<totalNeeded)
-        recvBuffer = recvBuffer.subdata(in: totalNeeded..<recvBuffer.count)
-
-        return LKFrame(type: header.type, tag: header.tag, payload: payloadData)
-    }
-
-    private func readChunk() throws {
-        guard socketFD >= 0 else { throw LookinCoreError.protocolError(reason: "Connection closed") }
-        var buffer = [UInt8](repeating: 0, count: 65536)
-        let n = recv(socketFD, &buffer, buffer.count, 0)
-        if n <= 0 {
-            throw LookinCoreError.protocolError(reason: "Connection closed")
-        }
-        recvBuffer.append(buffer, count: n)
+    /// Returns `true` the first time it is called; `false` on every subsequent call.
+    func fire() -> Bool {
+        lock.lock(); defer { lock.unlock() }
+        guard !_fired else { return false }
+        _fired = true
+        return true
     }
 }
