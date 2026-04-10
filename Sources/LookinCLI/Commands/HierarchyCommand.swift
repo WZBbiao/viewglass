@@ -22,6 +22,9 @@ struct HierarchyDump: AsyncParsableCommand {
     @Flag(name: .long, help: "Output in JSON format")
     var json = false
 
+    @Flag(name: .long, help: "Compact output optimised for AI agent consumption (oid/class/label/frame only)")
+    var compact = false
+
     @Option(name: .long, help: "Maximum depth to display")
     var maxDepth: Int?
 
@@ -33,7 +36,11 @@ struct HierarchyDump: AsyncParsableCommand {
             if let maxDepth = maxDepth {
                 snapshot = filterByDepth(snapshot, maxDepth: maxDepth)
             }
-            OutputFormatter.printHierarchy(snapshot, mode: json ? .json : .human)
+            if compact {
+                OutputFormatter.printHierarchyCompact(snapshot, mode: json ? .json : .human)
+            } else {
+                OutputFormatter.printHierarchy(snapshot, mode: json ? .json : .human)
+            }
         } catch let error as LookinCoreError {
             if json {
                 JSONOutput.printError(error: error)

@@ -53,6 +53,46 @@ final class CLICommandTests: XCTestCase {
         XCTAssertGreaterThan(data.count, 0)
     }
 
+    // Test hierarchy --compact format
+    func testHierarchyCompactFlow() async throws {
+        let services = ServiceContainer.makeMock()
+        let snapshot = try await services.hierarchy.fetchHierarchy(sessionId: "test")
+        let compact = HierarchyTextFormatter.formatCompact(snapshot: snapshot)
+
+        // Header line
+        XCTAssertTrue(compact.contains("DemoApp"), "header should include app name")
+        XCTAssertTrue(compact.contains("com.example.demo"), "header should include bundle id")
+        XCTAssertTrue(compact.contains("8 nodes"), "header should include node count")
+
+        // Each node should appear with oid and className
+        XCTAssertTrue(compact.contains("UIWindow (oid:1)"), "window node")
+        XCTAssertTrue(compact.contains("UIButton (oid:4)"), "button node")
+        XCTAssertTrue(compact.contains("UILabel (oid:5)"), "label node")
+
+        // Accessibility labels should be shown
+        XCTAssertTrue(compact.contains("\"Tap me\""), "button label oid:5 a11y label")
+        XCTAssertTrue(compact.contains("\"Welcome\""), "label oid:6 a11y label")
+
+        // Custom display title should be shown
+        XCTAssertTrue(compact.contains("\"ViewController.view\""), "VC view custom title")
+
+        // Hidden node should be annotated
+        XCTAssertTrue(compact.contains("[hidden]"), "hidden button should be annotated")
+
+        // Compact format should NOT include verbose fields
+        XCTAssertFalse(compact.contains("alpha:"), "no alpha in compact output")
+        XCTAssertFalse(compact.contains("bounds:"), "no bounds in compact output")
+
+        // Indentation: UIWindow is root (no indent), UIView child has 2-space indent
+        let lines = compact.split(separator: "\n", omittingEmptySubsequences: false).map(String.init)
+        let windowLine = lines.first(where: { $0.contains("UIWindow") })
+        let viewLine = lines.first(where: { $0.contains("UIView (oid:2)") })
+        XCTAssertNotNil(windowLine)
+        XCTAssertNotNil(viewLine)
+        XCTAssertFalse(windowLine!.hasPrefix("  "), "UIWindow should have no indent")
+        XCTAssertTrue(viewLine!.hasPrefix("  "), "UIView child should be indented")
+    }
+
     // Test node get flow
     func testNodeGetFlow() async throws {
         let services = ServiceContainer.makeMock()

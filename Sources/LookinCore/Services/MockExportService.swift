@@ -56,6 +56,34 @@ public enum HierarchyTextFormatter {
         return lines.joined(separator: "\n")
     }
 
+    /// Compact format for AI agent consumption.
+    /// One line per node: className (oid:N) [x,y W×H]  "label" #a11yId [hidden]
+    public static func formatCompact(snapshot: LKHierarchySnapshot) -> String {
+        var lines: [String] = []
+        lines.append("\(snapshot.appInfo.appName) (\(snapshot.appInfo.bundleIdentifier)) · \(snapshot.totalNodeCount) nodes")
+        for window in snapshot.windows {
+            formatCompactTree(window, indent: 0, lines: &lines)
+        }
+        return lines.joined(separator: "\n")
+    }
+
+    private static func formatCompactTree(_ tree: LKNodeTree, indent: Int, lines: inout [String]) {
+        let node = tree.node
+        let f = node.frame
+        let pad = String(repeating: "  ", count: indent)
+        var line = "\(pad)\(node.className) (oid:\(node.oid)) [\(Int(f.x)),\(Int(f.y)) \(Int(f.width))×\(Int(f.height))]"
+
+        var annotations: [String] = []
+        if let title = node.customDisplayTitle { annotations.append("\"\(title)\"") }
+        else if let label = node.accessibilityLabel { annotations.append("\"\(label)\"") }
+        if let id = node.accessibilityIdentifier { annotations.append("#\(id)") }
+        if !node.isVisible { annotations.append("[hidden]") }
+        if !annotations.isEmpty { line += "  " + annotations.joined(separator: " ") }
+
+        lines.append(line)
+        for child in tree.children { formatCompactTree(child, indent: indent + 1, lines: &lines) }
+    }
+
     private static func formatTree(_ tree: LKNodeTree, indent: Int, lines: inout [String]) {
         let prefix = String(repeating: "  ", count: indent)
         let visibility = tree.node.isVisible ? "" : " [hidden]"
