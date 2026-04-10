@@ -36,12 +36,28 @@ public final class LKUSBMuxConnection: LKConnectionProtocol, @unchecked Sendable
 
     public var isConnected: Bool { _connected }
 
+    /// Disconnect gracefully: drain pending push bytes for 150 ms, then close.
+    /// Same rationale as LKTCPConnection.disconnect() – avoiding RST keeps
+    /// LookinServer's Peertalk healthy so other clients (the GUI) can still connect.
     public func disconnect() {
         guard _connected else { return }
         _connected = false
-        io?.close(flags: .stop)
+        guard let channel = io else { return }
         io = nil
-        // DispatchIO.close() closes the fd; no need to call close(fd).
+
+        queue.async {
+            let deadline = DispatchTime.now() + 0.15
+            let sema = DispatchSemaphore(value: 0)
+            func drainOne() {
+                guard DispatchTime.now() < deadline else { sema.signal(); return }
+                channel.read(offset: 0, length: 65_536, queue: self.queue) { done, data, _ in
+                    if done { if data?.isEmpty ?? true { sema.signal() } else { drainOne() } }
+                }
+            }
+            drainOne()
+            sema.wait()
+            channel.close(flags: .stop)
+        }
     }
 
     public func sendRequest(type: UInt32, tag: UInt32, payload: Data = Data()) async throws -> LKFrame {

@@ -89,10 +89,36 @@ public final class LKTCPConnection: LKConnectionProtocol, @unchecked Sendable {
         nwConn = c
     }
 
+    /// Disconnect gracefully: drain any pending server-push bytes first, then cancel.
+    ///
+    /// Background: if the TCP receive buffer contains unread data when cancel() is
+    /// called, the OS sends RST instead of FIN.  RST causes LookinServer's Peertalk
+    /// to enter an error state and stop accepting NEW connections.  Other clients
+    /// (e.g. the Lookin GUI) can still use their existing connections, but they cannot
+    /// reconnect after the CLI closes without proper cleanup.
+    ///
+    /// A 150 ms async drain on ioQueue is sufficient to flush the push frames that
+    /// LookinServer sends after every mutation.  The drain runs in the background so
+    /// the caller is not blocked.
     public func disconnect() {
-        nwConn?.cancel()
+        guard let c = nwConn else { return }
         nwConn = nil
         state = .disconnected
+
+        ioQueue.async {
+            // Drain pending data for up to 150 ms, then FIN.
+            let deadline = DispatchTime.now() + 0.15
+            let sema = DispatchSemaphore(value: 0)
+            func drainOne() {
+                guard DispatchTime.now() < deadline else { sema.signal(); return }
+                c.receive(minimumIncompleteLength: 1, maximumLength: 65_536) { _, _, done, err in
+                    if done || err != nil { sema.signal() } else { drainOne() }
+                }
+            }
+            drainOne()
+            sema.wait()
+            c.cancel()
+        }
     }
 
     public var isConnected: Bool {
