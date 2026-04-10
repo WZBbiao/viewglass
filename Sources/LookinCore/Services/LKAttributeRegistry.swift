@@ -92,6 +92,12 @@ public enum LKAttributeRegistry {
 
         // UIImageView
         "contentScaleFactor":    AttributeMapping("setContentScaleFactor:", "contentScaleFactor", .double),
+
+        // UISwitch
+        "isOn":                  AttributeMapping("setOn:", "isOn", .BOOL, requiredClass: "UISwitch"),
+
+        // UISegmentedControl
+        "selectedSegmentIndex":  AttributeMapping("setSelectedSegmentIndex:", "selectedSegmentIndex", .long, requiredClass: "UISegmentedControl"),
     ]
 
     /// Look up the mapping for a user-friendly key.
