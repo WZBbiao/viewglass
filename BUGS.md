@@ -2,7 +2,7 @@
 
 ## Bugs
 
-- [ ] **#1 OID +1 偏移** (`LKBridgeConverter`)
+- [x] **#1 OID +1 偏移** (`LKBridgeConverter`)
   `hierarchy` 展示的是 `layerOid`（如 106），但 `tap`/`input`/`attr set` 操作时用的是 `viewOid`（如 107），造成输出不一致。
   根因：`convertDisplayItem` 中 `oid = layerOid ?? viewOid` 而 `actionOid = viewOid ?? layerOid`。
   修复：统一 `node.oid` 为 `viewOid ?? layerOid`（与 `primaryOid` 一致）。

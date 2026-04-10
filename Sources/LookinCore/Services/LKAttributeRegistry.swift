@@ -10,19 +10,24 @@ public enum LKAttributeRegistry {
         public let attrType: LookinAttrType
         public let targetIsLayer: Bool // true = layer OID, false = view OID
         public let requiredClass: String?
+        /// When true, setAttribute will also send UIControlEventValueChanged
+        /// after the property is written so app-layer callbacks fire.
+        public let sendsValueChanged: Bool
 
         public init(
             _ setter: String,
             _ getter: String,
             _ attrType: LookinAttrType,
             layer: Bool = false,
-            requiredClass: String? = nil
+            requiredClass: String? = nil,
+            sendsValueChanged: Bool = false
         ) {
             self.setter = setter
             self.getter = getter
             self.attrType = attrType
             self.targetIsLayer = layer
             self.requiredClass = requiredClass
+            self.sendsValueChanged = sendsValueChanged
         }
     }
 
@@ -66,7 +71,7 @@ public enum LKAttributeRegistry {
 
         // UIButton
         "enabled":               AttributeMapping("setEnabled:", "isEnabled", .BOOL, requiredClass: "UIControl"),
-        "selected":              AttributeMapping("setSelected:", "isSelected", .BOOL, requiredClass: "UIControl"),
+        "selected":              AttributeMapping("setSelected:", "isSelected", .BOOL, requiredClass: "UIControl", sendsValueChanged: true),
         "highlighted":           AttributeMapping("setHighlighted:", "isHighlighted", .BOOL, requiredClass: "UIControl"),
 
         // UITextField
@@ -94,10 +99,10 @@ public enum LKAttributeRegistry {
         "contentScaleFactor":    AttributeMapping("setContentScaleFactor:", "contentScaleFactor", .double),
 
         // UISwitch
-        "isOn":                  AttributeMapping("setOn:", "isOn", .BOOL, requiredClass: "UISwitch"),
+        "isOn":                  AttributeMapping("setOn:", "isOn", .BOOL, requiredClass: "UISwitch", sendsValueChanged: true),
 
         // UISegmentedControl
-        "selectedSegmentIndex":  AttributeMapping("setSelectedSegmentIndex:", "selectedSegmentIndex", .long, requiredClass: "UISegmentedControl"),
+        "selectedSegmentIndex":  AttributeMapping("setSelectedSegmentIndex:", "selectedSegmentIndex", .long, requiredClass: "UISegmentedControl", sendsValueChanged: true),
     ]
 
     /// Look up the mapping for a user-friendly key.

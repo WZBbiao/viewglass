@@ -82,6 +82,19 @@ public final class LiveMutationService: MutationServiceProtocol, @unchecked Send
 
                 try await client.submitModification(modification)
 
+                // For control-state properties (isOn, selectedSegmentIndex, etc.)
+                // also send UIControlEventValueChanged so app callbacks fire.
+                if mapping.sendsValueChanged {
+                    let valueChangedMod = LookinAttributeModification()
+                    valueChangedMod.targetOid = target.objectOid
+                    valueChangedMod.setterSelector = NSSelectorFromString("sendActionsForControlEvents:")
+                    valueChangedMod.getterSelector = NSSelectorFromString("allControlEvents")
+                    valueChangedMod.attrType = .unsignedLong
+                    valueChangedMod.value = NSNumber(value: 4096) // UIControlEventValueChanged
+                    valueChangedMod.clientReadableVersion = LOOKIN_SERVER_READABLE_VERSION
+                    try? await client.submitModification(valueChangedMod)
+                }
+
                 return LKModificationResult(
                     nodeOid: nodeOid,
                     attributeKey: key,
