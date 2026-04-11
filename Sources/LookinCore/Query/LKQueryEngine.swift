@@ -210,7 +210,15 @@ public final class LKQueryEngine: Sendable {
             }
         }
 
-        throw LookinCoreError.querySyntaxError(expression: expr, reason: "Unrecognized expression")
+        throw LookinCoreError.querySyntaxError(
+            expression: expr,
+            reason: "Unrecognized expression '\(expr)'. " +
+                "Class names must start with an uppercase letter (e.g. UILabel). " +
+                "Supported atoms: UILabel, *Label, UI*, oid:N, tag:N, depth:N, " +
+                "#accessibilityId, @\"label\", class:, controller:, parent:, ancestor:, " +
+                "contains:\"text\", text:\"substring\", .visible, .hidden, .interactive, " +
+                "AND, OR, NOT, (groups)"
+        )
     }
 
     /// Splits an expression by a logical operator at the top level

@@ -31,7 +31,7 @@ public final class LiveMutationService: MutationServiceProtocol, @unchecked Send
                 guard let mapping = LKAttributeRegistry.mapping(for: key) else {
                     throw LookinCoreError.attributeModificationFailed(
                         key: key,
-                        reason: "Unknown attribute '\(key)'. Available: \(LKAttributeRegistry.allKeys.joined(separator: ", "))"
+                        reason: "Unknown attribute key '\(key)'. Run 'viewglass attr keys' for the full list."
                     )
                 }
 
