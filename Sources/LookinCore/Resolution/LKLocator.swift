@@ -43,9 +43,13 @@ public struct LKLocator: Codable, Equatable, Sendable {
         if trimmed.hasPrefix("controller:") {
             return LKLocator(rawValue: input, kind: .controller, value: String(trimmed.dropFirst("controller:".count)))
         }
-        // Strings containing spaces are unlikely to be class names — treat them as
-        // accessibilityLabel searches so `locate "Open Long Feed"` works intuitively.
-        if trimmed.contains(" ") {
+        // Strings with logical operators are query expressions, not label searches.
+        let upper = trimmed.uppercased()
+        let isQueryExpression = upper.contains(" AND ") || upper.contains(" OR ")
+            || upper.hasPrefix("NOT ") || trimmed.contains("(")
+        if !isQueryExpression && trimmed.contains(" ") {
+            // Strings containing spaces are unlikely to be class names — treat them as
+            // accessibilityLabel searches so `locate "Open Long Feed"` works intuitively.
             return LKLocator(rawValue: input, kind: .accessibilityLabel, value: trimmed)
         }
         return LKLocator(rawValue: input, kind: .query, value: trimmed)
