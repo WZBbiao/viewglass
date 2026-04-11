@@ -5,7 +5,7 @@ struct AttrCommand: AsyncParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "attr",
         abstract: "Get or set node attributes",
-        subcommands: [AttrGet.self, AttrSet.self]
+        subcommands: [AttrGet.self, AttrSet.self, AttrKeys.self]
     )
 }
 
@@ -204,3 +204,26 @@ enum FlatAttributeValue: Encodable {
     }
 }
 
+// MARK: - attr keys
+
+struct AttrKeys: AsyncParsableCommand {
+    static let configuration = CommandConfiguration(
+        commandName: "keys",
+        abstract: "List all writable attribute keys accepted by 'attr set'"
+    )
+
+    @Flag(name: .long, help: "Output in JSON format")
+    var json = false
+
+    mutating func run() async throws {
+        let keys = LKAttributeRegistry.allKeys
+        if json {
+            struct KeysOutput: Encodable {
+                let keys: [String]
+            }
+            JSONOutput.print(KeysOutput(keys: keys))
+        } else {
+            keys.forEach { print($0) }
+        }
+    }
+}
