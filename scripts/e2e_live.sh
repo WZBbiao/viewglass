@@ -62,6 +62,17 @@ print(attrs.get('$key', ''))
 "
 }
 
+# Count all leaf nodes in a hierarchy snapshot JSON (recursive tree walk)
+hierarchy_node_count() {
+  printf '%s' "$1" | python3 -c "
+import json, sys
+data = json.loads(sys.stdin.read())
+def count_tree(tree):
+    return 1 + sum(count_tree(c) for c in tree.get('children', []))
+print(sum(count_tree(w) for w in data.get('windows', [])))
+"
+}
+
 # Get the count of nodes from a query/locate JSON array
 node_count() {
   printf '%s' "$1" | python3 -c "import json,sys; print(len(json.loads(sys.stdin.read())))"
@@ -249,6 +260,132 @@ else
 fi
 
 # ── summary ───────────────────────────────────────────────────────────────────
+
+section "7 - attr keys"
+KEYS_TXT="$(vg attr keys $S)"
+if [[ -n "$KEYS_TXT" ]]; then
+  pass "attr keys returns non-empty list"
+else
+  fail "attr keys returned empty output"
+fi
+
+KEYS_JSON="$(vg attr keys --json $S)"
+KEY_COUNT="$(printf '%s' "$KEYS_JSON" | python3 -c "import json,sys; d=json.load(sys.stdin); print(len(d.get('keys', [])))")"
+if [[ "$KEY_COUNT" -gt 0 ]]; then
+  pass "attr keys --json returns $KEY_COUNT keys"
+else
+  fail "attr keys --json returned 0 keys"
+fi
+# Well-known key must be present in both outputs
+if printf '%s' "$KEYS_TXT" | grep -q "^alpha$"; then
+  pass "attr keys contains 'alpha'"
+else
+  fail "attr keys missing 'alpha'"
+fi
+
+section "8 - enum names in attr get --json"
+# Re-launch and navigate to gestures screen for a live UILabel
+xcrun simctl terminate booted "$DEMO_BUNDLE" >/dev/null 2>&1 || true
+xcrun simctl launch booted "$DEMO_BUNDLE" >/dev/null 2>&1 || true
+sleep 1.5
+vg refresh $S --json >/dev/null
+vg tap "#push_gestures_screen" $S --json >/dev/null
+sleep 0.6
+vg refresh $S --json >/dev/null
+
+ENUM_ATTR="$(vg attr get "#gesture_status" $S --json)"
+TEXT_ALIGN="$(attr_val "$ENUM_ATTR" "textAlignment")"
+# textAlignment value must be a string name, not a bare integer
+if [[ -n "$TEXT_ALIGN" ]] && printf '%s' "$TEXT_ALIGN" | grep -qvE '^[0-9]+$'; then
+  pass "textAlignment is an enum name: '$TEXT_ALIGN' (not a raw integer)"
+else
+  fail "textAlignment expected a name, got: '$TEXT_ALIGN'"
+fi
+
+section "9 - assert commands"
+# assert visible — #gesture_status is on screen
+if vg assert visible "#gesture_status" $S >/dev/null 2>&1; then
+  pass "assert visible #gesture_status passed"
+else
+  fail "assert visible #gesture_status failed (expected exit 0)"
+fi
+
+# assert visible — force a failure for a non-existent element
+if vg assert visible "UIClassThatDoesNotExist999" $S >/dev/null 2>&1; then
+  fail "assert visible non-existent class should have exited 1"
+else
+  pass "assert visible correctly fails for non-existent element"
+fi
+
+# assert text — trigger long-press then check label text
+vg long-press "#long_press_card" $S --json >/dev/null
+sleep 0.4
+vg refresh $S --json >/dev/null
+if vg assert text "#gesture_status" --equals "Long press fired" $S >/dev/null 2>&1; then
+  pass "assert text --equals 'Long press fired' passed"
+else
+  fail "assert text --equals 'Long press fired' failed"
+fi
+
+# assert count — there should be at least one UILabel
+if vg assert count UILabel --min 1 $S >/dev/null 2>&1; then
+  pass "assert count UILabel --min 1 passed"
+else
+  fail "assert count UILabel --min 1 failed"
+fi
+
+section "10 - wait appears / wait gone"
+# wait appears: element already visible → satisfied on first poll
+if vg wait appears "#gesture_status" --timeout 3 $S >/dev/null 2>&1; then
+  pass "wait appears immediately satisfied for visible element"
+else
+  fail "wait appears failed for already-visible element"
+fi
+
+# wait gone: element that never exists → immediately satisfied (count == 0 from the start)
+if vg wait gone "UIClassThatDoesNotExist999" --timeout 3 $S >/dev/null 2>&1; then
+  pass "wait gone immediately satisfied for non-existent class"
+else
+  fail "wait gone failed for non-existent class — expected immediate success"
+fi
+
+# wait appears timeout: non-existent class should exit 1
+if vg wait appears "UIClassThatDoesNotExist999" --timeout 1 $S >/dev/null 2>&1; then
+  fail "wait appears non-existent class should time out (exit 1) but returned 0"
+else
+  pass "wait appears correctly times out for non-existent class (exit 1)"
+fi
+
+section "11 - hierarchy --filter"
+# Full hierarchy vs. filtered hierarchy: filtered must have fewer nodes
+FULL_HIER="$(vg hierarchy $S --json)"
+FULL_COUNT="$(hierarchy_node_count "$FULL_HIER")"
+if [[ "$FULL_COUNT" -gt 0 ]]; then
+  pass "full hierarchy returned $FULL_COUNT node(s)"
+else
+  fail "full hierarchy returned 0 nodes"
+fi
+
+FILTERED_HIER="$(vg hierarchy $S --filter UILabel --json)"
+FILTERED_COUNT="$(hierarchy_node_count "$FILTERED_HIER")"
+if [[ "$FILTERED_COUNT" -gt 0 ]]; then
+  pass "hierarchy --filter UILabel returned $FILTERED_COUNT node(s)"
+else
+  fail "hierarchy --filter UILabel returned 0 nodes — filter may be broken"
+fi
+if [[ "$FILTERED_COUNT" -lt "$FULL_COUNT" ]]; then
+  pass "filtered hierarchy ($FILTERED_COUNT) has fewer nodes than full hierarchy ($FULL_COUNT)"
+else
+  fail "filtered hierarchy ($FILTERED_COUNT) should be smaller than full ($FULL_COUNT)"
+fi
+# Filtered JSON must include UILabel class name
+if printf '%s' "$FILTERED_HIER" | grep -q '"UILabel"'; then
+  pass "filtered hierarchy JSON contains UILabel"
+else
+  fail "filtered hierarchy JSON does not contain UILabel"
+fi
+
+# ── final summary ─────────────────────────────────────────────────────────────
 echo
 echo "========================================"
 echo "Results: $PASS_COUNT passed, $FAIL_COUNT failed"
