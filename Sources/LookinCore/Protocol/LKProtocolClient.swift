@@ -162,11 +162,15 @@ public final class LKProtocolClient: @unchecked Sendable {
     }
 
     /// Invoke a method on an object.
-    public func invokeMethod(oid: UInt, selector: String) async throws -> (description: String?, object: Any?) {
-        let requestData: NSDictionary = [
+    public func invokeMethod(oid: UInt, selector: String, args: [String] = []) async throws -> (description: String?, object: Any?) {
+        var requestDict: [String: Any] = [
             "oid": NSNumber(value: oid),
             "text": selector
         ]
+        if !args.isEmpty {
+            requestDict["args"] = args as NSArray
+        }
+        let requestData = requestDict as NSDictionary
         let response = try await sendRequest(type: LookinRequestTypeInvokeMethod, data: requestData)
         guard let dict = response.data as? NSDictionary else {
             throw LookinCoreError.protocolError(reason: "Expected NSDictionary in invoke response")

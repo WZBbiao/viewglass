@@ -4,14 +4,18 @@ import LookinCore
 struct InvokeCommand: AsyncParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "invoke",
-        abstract: "Invoke a no-argument selector on a node"
+        abstract: "Invoke a selector on a node, optionally with arguments"
     )
 
-    @Argument(help: "Method selector to invoke (e.g. 'setNeedsLayout')")
+    @Argument(help: "Method selector to invoke (e.g. 'setNeedsLayout' or 'setAlpha:')")
     var selector: String
 
     @Option(name: .long, help: "Target locator, OID, or resolved-target JSON")
     var target: String
+
+    @Option(name: .long, parsing: .unconditionalSingleValue,
+            help: "Argument value (repeat for multiple args, e.g. --arg 0.5). Numeric types, BOOL (YES/NO/true/false/1/0), NSString, and ObjC struct strings ({x,y}, {{x,y},{w,h}}) are supported.")
+    var arg: [String] = []
 
     @Option(name: .long, help: "Session ID (auto-detected if omitted)")
     var session: String?
@@ -34,6 +38,7 @@ struct InvokeCommand: AsyncParsableCommand {
             let result = try await services.mutation.invokeMethod(
                 nodeOid: resolved.targets.controllerOid ?? resolved.targets.actionOid,
                 selector: selector,
+                args: arg,
                 sessionId: sessionId
             )
             OutputFormatter.printConsoleResult(result, mode: json ? .json : .human)

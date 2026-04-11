@@ -241,6 +241,7 @@ public final class LiveMutationService: MutationServiceProtocol, @unchecked Send
     public func invokeMethod(
         nodeOid: UInt,
         selector: String,
+        args: [String],
         sessionId: String
     ) async throws -> LKConsoleResult {
         let client = try await sessionService.getClient(for: sessionId)
@@ -257,11 +258,11 @@ public final class LiveMutationService: MutationServiceProtocol, @unchecked Send
             client: client,
             className: target.className,
             selector: selector,
-            hasArg: false,
+            hasArg: !args.isEmpty,
             action: "invoke"
         )
 
-        let (description, _) = try await client.invokeMethod(oid: target.objectOid, selector: selector)
+        let (description, _) = try await client.invokeMethod(oid: target.objectOid, selector: selector, args: args)
 
         return LKConsoleResult(
             expression: selector,

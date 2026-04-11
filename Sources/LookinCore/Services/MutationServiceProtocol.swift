@@ -12,6 +12,7 @@ public protocol MutationServiceProtocol: Sendable {
     func invokeMethod(
         nodeOid: UInt,
         selector: String,
+        args: [String],
         sessionId: String
     ) async throws -> LKConsoleResult
 

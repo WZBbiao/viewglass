@@ -36,6 +36,7 @@ struct ConsoleEval: AsyncParsableCommand {
             let result = try await services.mutation.invokeMethod(
                 nodeOid: oid,
                 selector: expression,
+                args: [],
                 sessionId: try resolveSession(session, services: services)
             )
             OutputFormatter.printConsoleResult(result, mode: json ? .json : .human)

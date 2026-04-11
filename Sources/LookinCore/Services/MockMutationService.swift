@@ -30,6 +30,7 @@ public final class MockMutationService: MutationServiceProtocol, @unchecked Send
     public func invokeMethod(
         nodeOid: UInt,
         selector: String,
+        args: [String],
         sessionId: String
     ) async throws -> LKConsoleResult {
         if shouldFail {

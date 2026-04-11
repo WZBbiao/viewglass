@@ -211,10 +211,29 @@ final class CLICommandTests: XCTestCase {
     func testConsoleEvalFlow() async throws {
         let services = ServiceContainer.makeMock()
         let result = try await services.mutation.invokeMethod(
-            nodeOid: 4, selector: "setNeedsLayout", sessionId: "test"
+            nodeOid: 4, selector: "setNeedsLayout", args: [], sessionId: "test"
         )
         XCTAssertTrue(result.success)
         XCTAssertEqual(result.expression, "setNeedsLayout")
+    }
+
+    func testInvokeWithArgsPassesThroughMock() async throws {
+        let services = ServiceContainer.makeMock()
+        // Verify that invokeMethod with args is accepted by the service layer
+        let result = try await services.mutation.invokeMethod(
+            nodeOid: 4, selector: "setAlpha:", args: ["0.5"], sessionId: "test"
+        )
+        XCTAssertTrue(result.success)
+        XCTAssertEqual(result.expression, "setAlpha:")
+    }
+
+    func testInvokeWithMultipleArgsPassesThroughMock() async throws {
+        let services = ServiceContainer.makeMock()
+        let result = try await services.mutation.invokeMethod(
+            nodeOid: 4, selector: "setContentOffset:animated:", args: ["{0, 100}", "YES"], sessionId: "test"
+        )
+        XCTAssertTrue(result.success)
+        XCTAssertEqual(result.expression, "setContentOffset:animated:")
     }
 
     func testControlTapFlow() async throws {
