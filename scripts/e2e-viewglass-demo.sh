@@ -73,8 +73,19 @@ import sys
 
 accepted = {item.strip().lower() for item in sys.argv[1].split(",") if item.strip()}
 data = json.loads(os.environ["JSON_INPUT"])
-groups = data["attributes"] if isinstance(data, dict) and "attributes" in data else data
-for group in groups:
+attrs = data.get("attributes", data) if isinstance(data, dict) else data
+
+if isinstance(attrs, dict):
+    # New flat format: {"readable_key": value, ...}
+    for key, value in attrs.items():
+        if key.lower() in accepted and value is not None:
+            print(value if isinstance(value, str) else str(value))
+            sys.exit(0)
+    print("")
+    sys.exit(0)
+
+# Old nested format: list of attribute groups
+for group in attrs:
     for attr in group.get("attributes", []):
         names = []
         if attr.get("key"):
@@ -151,7 +162,19 @@ prepare_simulator() {
 }
 
 launch_demo() {
-  xcrun simctl terminate "$SIMULATOR_UDID" "$APP_BUNDLE_ID" >/dev/null 2>&1 || true
+  # Terminate ViewglassDemo on every booted simulator to free port 47164
+  # (multiple simulators sharing localhost would cause the wrong one to hold the port).
+  while IFS= read -r udid; do
+    xcrun simctl terminate "$udid" "$APP_BUNDLE_ID" >/dev/null 2>&1 || true
+  done < <(xcrun simctl list devices --json | python3 -c "
+import json, sys
+data = json.load(sys.stdin)
+for devices in data['devices'].values():
+    for d in devices:
+        if d.get('state') == 'Booted':
+            print(d['udid'])
+")
+  sleep 0.5
   xcrun simctl launch "$SIMULATOR_UDID" "$APP_BUNDLE_ID" >/dev/null
   sleep 2
 }
@@ -273,7 +296,18 @@ assert_status_contains() {
 scroll_feed_and_verify() {
   local before_json after_json before_offset after_offset
   before_json="$(run_viewglass attr get "#long_feed_scroll" --session "$SESSION_SPEC" --json)"
-  before_offset="$(json_query "$before_json" 'next(attr["value"]["string"]["_0"] for group in data["attributes"] for attr in group["attributes"] if attr["key"] == "sv_o_o")')"
+  # Support new flat format (contentOffset key) and old nested format (sv_o_o key).
+  before_offset="$(JSON_INPUT="$before_json" python3 <<'PY'
+import json, os
+data = json.loads(os.environ["JSON_INPUT"])
+attrs = data.get("attributes", {})
+if isinstance(attrs, dict):
+    print(attrs.get("contentOffset", ""))
+else:
+    val = next((a["value"]["string"]["_0"] for g in attrs for a in g.get("attributes", []) if a.get("key") == "sv_o_o"), "")
+    print(val)
+PY
+)"
   if [[ "$before_offset" != "NSPoint: {0, 0}" ]]; then
     echo "Unexpected initial contentOffset: $before_offset" >&2
     exit 1
@@ -282,7 +316,17 @@ scroll_feed_and_verify() {
   run_viewglass scroll "#long_feed_scroll" --to 0,320 --session "$SESSION_SPEC" --json >/dev/null
 
   after_json="$(run_viewglass attr get "#long_feed_scroll" --session "$SESSION_SPEC" --json)"
-  after_offset="$(json_query "$after_json" 'next(attr["value"]["string"]["_0"] for group in data["attributes"] for attr in group["attributes"] if attr["key"] == "sv_o_o")')"
+  after_offset="$(JSON_INPUT="$after_json" python3 <<'PY'
+import json, os
+data = json.loads(os.environ["JSON_INPUT"])
+attrs = data.get("attributes", {})
+if isinstance(attrs, dict):
+    print(attrs.get("contentOffset", ""))
+else:
+    val = next((a["value"]["string"]["_0"] for g in attrs for a in g.get("attributes", []) if a.get("key") == "sv_o_o"), "")
+    print(val)
+PY
+)"
   if [[ "$after_offset" != "NSPoint: {0, 320}" ]]; then
     echo "Expected contentOffset to become {0, 320}, got $after_offset" >&2
     exit 1
