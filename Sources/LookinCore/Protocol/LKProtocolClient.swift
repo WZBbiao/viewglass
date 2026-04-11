@@ -298,6 +298,21 @@ public final class LKProtocolClient: @unchecked Sendable {
         return nil
     }
 
+    /// Send `setContentOffset:animated:YES` to a UIScrollView and wait for the server
+    /// to reply *after* the animation finishes (~300 ms server-side delay).
+    public func triggerSemanticScrollAnimated(oid: UInt, x: Double, y: Double) async throws -> String? {
+        let requestData: NSDictionary = [
+            "oid": NSNumber(value: oid),
+            "x": NSNumber(value: x),
+            "y": NSNumber(value: y),
+        ]
+        let response = try await sendRequest(type: LookinRequestTypeSemanticScrollAnimated, data: requestData)
+        if let dict = response.data as? NSDictionary {
+            return dict["detail"] as? String
+        }
+        return nil
+    }
+
     public func fetchHighResolutionScreenScreenshot() async throws -> Data {
         let response = try await sendRequest(type: LookinRequestTypeHighResolutionScreenshot, data: [:] as NSDictionary)
         guard let data = response.data as? Data, !data.isEmpty else {

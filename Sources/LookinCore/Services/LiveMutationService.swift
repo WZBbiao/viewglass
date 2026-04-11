@@ -119,29 +119,18 @@ public final class LiveMutationService: MutationServiceProtocol, @unchecked Send
     }
 
     /// Scroll a UIScrollView to `targetOffset` using UIKit's native `setContentOffset:animated:`.
-    /// A single server call; UIKit handles the timing curve on-device.
+    /// Blocks until the animation finishes (server defers TCP response by ~300 ms).
     public func scrollAnimated(
         nodeOid: UInt,
         targetOffset: CGPoint,
         sessionId: String
     ) async throws -> LKModificationResult {
         let client = try await sessionService.getClient(for: sessionId)
-        let hierarchy = try await client.fetchHierarchy()
-        let target = try resolveTargetMetadata(
-            nodeOid: nodeOid,
-            isLayerProperty: false,
-            hierarchy: hierarchy
+        _ = try await client.triggerSemanticScrollAnimated(
+            oid: nodeOid,
+            x: Double(targetOffset.x),
+            y: Double(targetOffset.y)
         )
-
-        // CGPointFromString on the server expects "{x, y}" format.
-        // BOOL animated=YES is passed as "1" (char/BOOL type encoding on arm64).
-        let pointArg = "{\(targetOffset.x), \(targetOffset.y)}"
-        _ = try await client.invokeMethod(
-            oid: target.objectOid,
-            selector: "setContentOffset:animated:",
-            args: [pointArg, "1"]
-        )
-
         return LKModificationResult(
             nodeOid: nodeOid,
             attributeKey: "contentOffset",

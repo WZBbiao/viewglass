@@ -35,6 +35,9 @@ static const uint32_t LookinRequestTypeSemanticLongPress = 216;
 static const uint32_t LookinRequestTypeHighResolutionScreenshot = 217;
 static const uint32_t LookinRequestTypeSemanticDismiss = 218;
 static const uint32_t LookinRequestTypeSemanticTextInput = 219;
+/// Scroll a UIScrollView to a target offset with UIKit animation; server defers
+/// the TCP response until after the animation finishes (~300 ms).
+static const uint32_t LookinRequestTypeSemanticScrollAnimated = 220;
 
 // Push types
 static const uint32_t LookinPush_BringForwardScreenshotTask = 303;
