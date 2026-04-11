@@ -115,6 +115,143 @@ public enum LKAttributeRegistry {
         mappings.keys.sorted()
     }
 
+    // MARK: - Obfuscated Identifier → Readable Name
+
+    /// Maps Lookin's internal short attribute identifiers (e.g. "sv_o_o") to
+    /// human-readable names (e.g. "contentOffset") for AI-agent–friendly output.
+    private static let attrIdentifierReadableNames: [String: String] = [
+        // Layout
+        "l_f_f": "frame",
+        "l_b_b": "bounds",
+        "l_s_s": "safeAreaInsets",
+        "l_p_p": "layer.position",
+        "l_a_a": "layer.anchorPoint",
+
+        // AutoLayout
+        "al_h_h": "contentHugging.horizontal",
+        "al_h_v": "contentHugging.vertical",
+        "al_r_h": "compressionResistance.horizontal",
+        "al_r_v": "compressionResistance.vertical",
+        "al_c_c": "constraints",
+        "cl_i_s": "intrinsicContentSize",
+
+        // View & Layer – visibility
+        "vl_v_h": "hidden",
+        "vl_v_o": "opacity",
+
+        // View & Layer – interaction / masks
+        "vl_i_i": "userInteractionEnabled",
+        "vl_i_m": "masksToBounds",
+
+        // View & Layer – corner / border / shadow
+        "vl_c_r": "cornerRadius",
+        "vl_b_b": "backgroundColor",
+        "vl_b_c": "borderColor",
+        "vl_b_w": "borderWidth",
+        "vl_s_c": "shadowColor",
+        "vl_s_o": "shadowOpacity",
+        "vl_s_r": "shadowRadius",
+        "vl_s_ow": "shadowOffset.width",
+        "vl_s_oh": "shadowOffset.height",
+
+        // View & Layer – appearance
+        "vl_c_m": "contentMode",
+        "vl_t_c": "tintColor",
+        "vl_t_m": "tintAdjustmentMode",
+        "vl_t_t": "tag",
+
+        // UIImageView
+        "iv_n_n": "imageName",
+        "iv_o_o": "image",
+
+        // UILabel
+        "lb_t_t": "text",
+        "lb_f_n": "fontName",
+        "lb_f_s": "fontSize",
+        "lb_n_n": "numberOfLines",
+        "lb_t_c": "textColor",
+        "lb_a_a": "textAlignment",
+        "lb_b_m": "lineBreakMode",
+        "lb_c_c": "adjustsFontSizeToFit",
+
+        // UIControl
+        "ct_e_e": "enabled",
+        "ct_e_s": "selected",
+        "ct_v_a": "contentVerticalAlignment",
+        "ct_h_a": "contentHorizontalAlignment",
+
+        // UIButton
+        "bt_c_i": "contentEdgeInsets",
+        "bt_t_i": "titleEdgeInsets",
+        "bt_i_i": "imageEdgeInsets",
+
+        // UIScrollView
+        "sv_o_o": "contentOffset",
+        "sv_c_s": "contentSize",
+        "sv_c_i": "contentInset",
+        "sv_a_i": "adjustedContentInset",
+        "sv_b_b": "contentInsetAdjustmentBehavior",
+        "sv_i_i": "scrollIndicatorInsets",
+        "sv_s_s": "scrollEnabled",
+        "sv_s_p": "pagingEnabled",
+        "sv_b_v": "alwaysBounceVertical",
+        "sv_b_h": "alwaysBounceHorizontal",
+        "sv_h_h": "showsHorizontalScrollIndicator",
+        "sv_s_v": "showsVerticalScrollIndicator",
+        "sv_c_d": "delaysContentTouches",
+        "sv_c_c": "canCancelContentTouches",
+        "sv_z_mi": "minimumZoomScale",
+        "sv_z_ma": "maximumZoomScale",
+        "sv_z_s": "zoomScale",
+        "sv_z_b": "bouncesZoom",
+
+        // UITableView
+        "tv_s_s": "tableStyle",
+        "tv_s_n": "numberOfSections",
+        "tv_r_n": "totalRows",
+        "tv_s_i": "separatorInset",
+        "tv_s_c": "separatorColor",
+        "tv_ss_s": "separatorStyle",
+
+        // UITextView
+        "te_f_n": "textView.fontName",
+        "te_f_s": "textView.fontSize",
+        "te_b_e": "isEditable",
+        "te_b_s": "isSelectable",
+        "te_t_t": "textView.text",
+        "te_t_c": "textView.textColor",
+        "te_a_a": "textView.textAlignment",
+        "te_c_i": "textContainerInset",
+
+        // UITextField
+        "tf_t_t": "textField.text",
+        "tf_p_p": "placeholder",
+        "tf_f_n": "textField.fontName",
+        "tf_f_s": "textField.fontSize",
+        "tf_t_c": "textField.textColor",
+        "tf_a_a": "textField.textAlignment",
+        "tf_c_c": "clearsOnBeginEditing",
+        "tf_c_co": "clearsOnInsertion",
+        "tf_c_ca": "adjustsFontSizeToFit",
+        "tf_c_m": "minimumFontSize",
+        "tf_cb_m": "clearButtonMode",
+
+        // UIVisualEffectView
+        "ve_s_s": "blurEffectStyle",
+
+        // UIStackView
+        "usv_axis_axis": "axis",
+        "usv_dis_dis": "distribution",
+        "usv_ali_ali": "stackAlignment",
+        "usv_spa_spa": "spacing",
+    ]
+
+    /// Returns a human-readable name for a Lookin short attribute identifier,
+    /// or nil if the identifier is not recognized.
+    public static func readableName(forAttrIdentifier id: String) -> String? {
+        attrIdentifierReadableNames[id]
+    }
+
     // MARK: - Value Parsing
 
     /// Parse a string value into the appropriate NSObject for the given attribute type.

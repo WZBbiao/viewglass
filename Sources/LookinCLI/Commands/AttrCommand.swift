@@ -39,10 +39,10 @@ struct AttrGet: AsyncParsableCommand {
             let node = resolved.node
             let groups = try await services.nodeQuery.getAttributes(oid: resolved.targets.inspectOid, sessionId: sessionId)
             if json {
-                JSONOutput.print(NodeAttributes(
+                JSONOutput.print(FlatNodeAttributes.make(
                     oid: node.oid,
                     className: node.className,
-                    attributes: groups
+                    groups: groups
                 ))
             } else {
                 print("\(node.className) (oid:\(node.oid))")
@@ -139,3 +139,56 @@ struct NodeAttributes: Codable {
     let className: String
     let attributes: [LKAttributeGroup]
 }
+
+/// AI-agent–friendly flat representation of a node's attributes.
+/// Uses displayName as key and unwraps LKAttributeValue to native JSON types.
+struct FlatNodeAttributes: Encodable {
+    let oid: UInt
+    let className: String
+    let attributes: [String: FlatAttributeValue]
+
+    static func make(oid: UInt, className: String, groups: [LKAttributeGroup]) -> FlatNodeAttributes {
+        var dict: [String: FlatAttributeValue] = [:]
+        for group in groups {
+            for attr in group.attributes {
+                // Prefer registry-mapped readable name over Lookin's obfuscated short identifier.
+                let key = LKAttributeRegistry.readableName(forAttrIdentifier: attr.key)
+                    ?? LKAttributeRegistry.readableName(forAttrIdentifier: attr.displayName)
+                    ?? (attr.displayName.isEmpty ? attr.key : attr.displayName)
+                dict[key] = FlatAttributeValue(attr.value)
+            }
+        }
+        return FlatNodeAttributes(oid: oid, className: className, attributes: dict)
+    }
+}
+
+enum FlatAttributeValue: Encodable {
+    case string(String)
+    case number(Double)
+    case bool(Bool)
+    case null
+
+    init(_ value: LKAttributeValue) {
+        switch value {
+        case .string(let s): self = .string(s)
+        case .number(let n): self = .number(n)
+        case .bool(let b): self = .bool(b)
+        case .rect(let r): self = .string("(\(r.x), \(r.y), \(r.width), \(r.height))")
+        case .color(let c): self = .string(c)
+        case .null: self = .null
+        }
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        switch self {
+        case .string(let s): try container.encode(s)
+        case .number(let n):
+            if n == n.rounded() && !n.isInfinite { try container.encode(Int(n)) }
+            else { try container.encode(n) }
+        case .bool(let b): try container.encode(b)
+        case .null: try container.encodeNil()
+        }
+    }
+}
+
