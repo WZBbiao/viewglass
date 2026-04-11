@@ -26,7 +26,7 @@ struct ScrollCommand: AsyncParsableCommand {
     @Flag(name: .long, help: "Output in JSON format")
     var json = false
 
-    @Flag(name: .long, help: "Animate the scroll with ease-in-out interpolation (multi-step client-side animation)")
+    @Flag(name: .long, help: "Animate the scroll using UIKit's native setContentOffset:animated: (smooth, on-device timing curve)")
     var animated = false
 
     mutating func run() async throws {

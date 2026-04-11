@@ -38,4 +38,37 @@ final class MockMutationServiceActionTests: XCTestCase {
         XCTAssertEqual(result.mode, .semantic)
         XCTAssertEqual(result.nodeOid, 24)
     }
+
+    // MARK: - invokeMethod (带参调用)
+
+    func testInvokeMethodNoArgsSucceeds() async throws {
+        let service = MockMutationService()
+        let result = try await service.invokeMethod(nodeOid: 99, selector: "setNeedsLayout", args: [], sessionId: "mock")
+        XCTAssertTrue(result.success)
+        XCTAssertEqual(result.targetOid, 99)
+        XCTAssertEqual(result.expression, "setNeedsLayout")
+    }
+
+    func testInvokeMethodWithArgsSucceeds() async throws {
+        let service = MockMutationService()
+        let result = try await service.invokeMethod(nodeOid: 55, selector: "setAlpha:", args: ["0.5"], sessionId: "mock")
+        XCTAssertTrue(result.success)
+        XCTAssertEqual(result.targetOid, 55)
+        XCTAssertEqual(result.expression, "setAlpha:")
+    }
+
+    func testInvokeMethodFailsWhenShouldFailIsSet() async throws {
+        let service = MockMutationService()
+        service.shouldFail = true
+        do {
+            _ = try await service.invokeMethod(nodeOid: 1, selector: "setNeedsLayout", args: [], sessionId: "mock")
+            XCTFail("Expected error to be thrown")
+        } catch let error as LookinCoreError {
+            guard case .consoleEvalFailed(let expr, _) = error else {
+                return XCTFail("Unexpected LookinCoreError: \(error)")
+            }
+            XCTAssertEqual(expr, "setNeedsLayout")
+        }
+    }
 }
+
