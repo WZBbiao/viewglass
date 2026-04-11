@@ -321,13 +321,13 @@ fi
 vg long-press "#long_press_card" $S --json >/dev/null
 sleep 0.4
 vg refresh $S --json >/dev/null
-if vg assert text "#gesture_status" --equals "Long press fired" $S >/dev/null 2>&1; then
-  pass "assert text --equals 'Long press fired' passed"
+if vg assert text "#gesture_status" "Long press fired" $S >/dev/null 2>&1; then
+  pass "assert text positional expected 'Long press fired' passed"
 else
-  fail "assert text --equals 'Long press fired' failed"
+  fail "assert text positional expected 'Long press fired' failed"
 fi
 
-# assert count — there should be at least one UILabel
+# assert count — there should be at least one UILabel (--min alone, no positional needed)
 if vg assert count UILabel --min 1 $S >/dev/null 2>&1; then
   pass "assert count UILabel --min 1 passed"
 else
@@ -383,6 +383,72 @@ if printf '%s' "$FILTERED_HIER" | grep -q '"UILabel"'; then
   pass "filtered hierarchy JSON contains UILabel"
 else
   fail "filtered hierarchy JSON does not contain UILabel"
+fi
+
+section "12 - assert attr"
+# On gestures screen (continued from §9-11): statusLabel.hidden should be false
+if vg assert attr "#gesture_status" --key hidden --equals "false" $S >/dev/null 2>&1; then
+  pass "assert attr hidden==false passed"
+else
+  fail "assert attr hidden==false failed"
+fi
+# Negative: assert hidden==true should fail
+if vg assert attr "#gesture_status" --key hidden --equals "true" $S >/dev/null 2>&1; then
+  fail "assert attr hidden==true should have exited 1 (label is visible)"
+else
+  pass "assert attr correctly fails when expected value does not match"
+fi
+
+section "13 - wait attr (live polling)"
+# Reset the gesture status to a known initial state by relaunching and navigating.
+xcrun simctl terminate booted "$DEMO_BUNDLE" >/dev/null 2>&1 || true
+xcrun simctl launch booted "$DEMO_BUNDLE" >/dev/null 2>&1 || true
+sleep 1.5
+vg refresh $S --json >/dev/null
+vg tap "#push_gestures_screen" $S --json >/dev/null
+sleep 0.6
+vg refresh $S --json >/dev/null
+# Status should now be "No gesture triggered yet"
+
+# wait attr: condition already met on first poll
+if vg wait attr "#gesture_status" --key text --contains "No gesture" --timeout 5 $S >/dev/null 2>&1; then
+  pass "wait attr --contains satisfied on first poll"
+else
+  fail "wait attr --contains failed (expected first-poll pass)"
+fi
+
+# wait attr: real polling — trigger a tap ~1s after starting wait
+(sleep 0.8 && vg tap "#tappable_label" $S --json >/dev/null) &
+BG_TAP_PID=$!
+if vg wait attr "#gesture_status" --key text --equals "Tap gesture fired" \
+   --timeout 6 --interval-ms 400 $S >/dev/null 2>&1; then
+  pass "wait attr polls and detects 'Tap gesture fired' after async tap"
+else
+  fail "wait attr failed to detect attribute change within timeout"
+fi
+wait $BG_TAP_PID 2>/dev/null || true
+
+# wait attr: timeout on unachievable condition
+if vg wait attr "#gesture_status" --key text --equals "ThisWillNeverHappen" \
+   --timeout 1 $S >/dev/null 2>&1; then
+  fail "wait attr should time out for unachievable condition (expected exit 1)"
+else
+  pass "wait attr correctly times out for unachievable condition"
+fi
+
+section "14 - UIStackView axis enum name"
+# Navigate to home screen (relaunch) to get #home_buttons_stack in view.
+xcrun simctl terminate booted "$DEMO_BUNDLE" >/dev/null 2>&1 || true
+xcrun simctl launch booted "$DEMO_BUNDLE" >/dev/null 2>&1 || true
+sleep 1.5
+vg refresh $S --json >/dev/null
+
+STACK_ATTR="$(vg attr get "#home_buttons_stack" $S --json)"
+AXIS_VAL="$(attr_val "$STACK_ATTR" "axis")"
+if [[ "$AXIS_VAL" == "vertical" ]]; then
+  pass "UIStackView axis enum: got 'vertical' instead of raw int 1"
+else
+  fail "UIStackView axis expected 'vertical', got: '$AXIS_VAL'"
 fi
 
 # ── final summary ─────────────────────────────────────────────────────────────

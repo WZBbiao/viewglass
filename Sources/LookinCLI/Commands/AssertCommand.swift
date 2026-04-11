@@ -149,8 +149,8 @@ struct AssertCount: AsyncParsableCommand {
     @Argument(help: "Locator: class name, OID, accessibility identifier, or query expression")
     var locator: String
 
-    @Argument(help: "Expected count")
-    var expected: Int
+    @Argument(help: "Expected exact count (omit when using --min or --max alone)")
+    var expected: Int?
 
     @Option(name: .long, help: "Assert count is at least this value (overrides exact count)")
     var min: Int?
@@ -184,9 +184,12 @@ struct AssertCount: AsyncParsableCommand {
             } else if let maxVal = max {
                 passed = actual <= maxVal
                 conditionDesc = "<= \(maxVal)"
+            } else if let exact = expected {
+                passed = actual == exact
+                conditionDesc = "== \(exact)"
             } else {
-                passed = actual == expected
-                conditionDesc = "== \(expected)"
+                printStderr("Provide an expected count or at least one of --min / --max")
+                throw ExitCode(1)
             }
             let msg: String
             if passed {
