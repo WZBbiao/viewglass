@@ -166,6 +166,7 @@ enum FlatAttributeValue: Encodable {
     case string(String)
     case number(Double)
     case bool(Bool)
+    case rect(LKRect)
     case null
 
     init(_ value: LKAttributeValue) {
@@ -173,7 +174,7 @@ enum FlatAttributeValue: Encodable {
         case .string(let s): self = .string(s)
         case .number(let n): self = .number(n)
         case .bool(let b): self = .bool(b)
-        case .rect(let r): self = .string("(\(r.x), \(r.y), \(r.width), \(r.height))")
+        case .rect(let r): self = .rect(r)
         case .color(let c): self = .string(c)
         case .null: self = .null
         }
@@ -187,21 +188,43 @@ enum FlatAttributeValue: Encodable {
             if n == n.rounded() && !n.isInfinite { return String(Int(n)) }
             return String(n)
         case .bool(let b): return b ? "true" : "false"
+        case .rect(let r): return "(\(r.x), \(r.y), \(r.width), \(r.height))"
         case .null: return ""
         }
     }
 
     func encode(to encoder: Encoder) throws {
-        var container = encoder.singleValueContainer()
         switch self {
-        case .string(let s): try container.encode(s)
+        case .string(let s):
+            var c = encoder.singleValueContainer()
+            try c.encode(s)
         case .number(let n):
-            if n == n.rounded() && !n.isInfinite { try container.encode(Int(n)) }
-            else { try container.encode(n) }
-        case .bool(let b): try container.encode(b)
-        case .null: try container.encodeNil()
+            var c = encoder.singleValueContainer()
+            if n == n.rounded() && !n.isInfinite { try c.encode(Int(n)) }
+            else { try c.encode(n) }
+        case .bool(let b):
+            var c = encoder.singleValueContainer()
+            try c.encode(b)
+        case .rect(let r):
+            var c = encoder.container(keyedBy: RectKey.self)
+            func enc(_ v: Double, _ key: RectKey) throws {
+                if v == v.rounded() && !v.isInfinite { try c.encode(Int(v), forKey: key) }
+                else { try c.encode(v, forKey: key) }
+            }
+            try enc(r.x, .x)
+            try enc(r.y, .y)
+            try enc(r.width, .w)
+            try enc(r.height, .h)
+        case .null:
+            var c = encoder.singleValueContainer()
+            try c.encodeNil()
         }
     }
+
+    private enum RectKey: String, CodingKey { case x, y, w, h }
+
+    /// Encode a coordinate as Int when it has no fractional part, otherwise Double.
+    private func formatCoord(_ v: Double) -> Double { v }
 }
 
 // MARK: - attr keys
