@@ -43,6 +43,10 @@ public struct LKLocator: Codable, Equatable, Sendable {
         if trimmed.hasPrefix("controller:") {
             return LKLocator(rawValue: input, kind: .controller, value: String(trimmed.dropFirst("controller:".count)))
         }
+        // contains:"..." is always a query expression, never a label search
+        if trimmed.hasPrefix("contains:") {
+            return LKLocator(rawValue: input, kind: .query, value: trimmed)
+        }
         // Strings with logical operators are query expressions, not label searches.
         let upper = trimmed.uppercased()
         let isQueryExpression = upper.contains(" AND ") || upper.contains(" OR ")

@@ -21,6 +21,7 @@ public final class LKQueryEngine: Sendable {
     /// - `controller:UIAlertController` — match by hosting UIViewController class
     /// - `depth:3` — match by depth level
     /// - `parent:UIView` — match nodes whose parent class matches
+    /// - `contains:"text"` — match nodes whose accessibilityLabel contains substring (case-insensitive)
     /// - Logical operators: `AND`, `OR`, `NOT` (case insensitive)
     /// - Parentheses for grouping: `(UIButton OR UILabel) AND .visible`
     public func execute(expression: String, on snapshot: LKHierarchySnapshot) throws -> [LKNode] {
@@ -122,6 +123,18 @@ public final class LKQueryEngine: Sendable {
                 guard let parentNode = snapshot.findNode(oid: parentOid) else { return false }
                 return parentNode.className == parentClass
             }
+        }
+
+        // contains:"substring" — accessibilityLabel contains (case-insensitive)
+        if expr.hasPrefix("contains:") {
+            let raw = String(expr.dropFirst(9))
+            let substring: String
+            if raw.hasPrefix("\"") && raw.hasSuffix("\"") && raw.count >= 2 {
+                substring = String(raw.dropFirst().dropLast())
+            } else {
+                substring = raw
+            }
+            return { $0.accessibilityLabel?.localizedCaseInsensitiveContains(substring) == true }
         }
 
         // #accessibilityIdentifier

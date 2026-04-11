@@ -140,4 +140,36 @@ final class LKQueryEngineTests: XCTestCase {
         )
         XCTAssertEqual(results.count, 0) // No match, but no crash
     }
+
+    // MARK: - contains:
+
+    func testContainsQuotedMatch() throws {
+        // "Tap me" label should match partial substring "Tap"
+        let results = try engine.execute(expression: "contains:\"Tap\"", on: snapshot)
+        XCTAssertGreaterThan(results.count, 0)
+        XCTAssertTrue(results.allSatisfy { $0.accessibilityLabel?.localizedCaseInsensitiveContains("Tap") == true })
+    }
+
+    func testContainsCaseInsensitive() throws {
+        let results = try engine.execute(expression: "contains:\"tap me\"", on: snapshot)
+        XCTAssertGreaterThan(results.count, 0)
+    }
+
+    func testContainsNoMatch() throws {
+        let results = try engine.execute(expression: "contains:\"ZZZnonexistent\"", on: snapshot)
+        XCTAssertEqual(results.count, 0)
+    }
+
+    func testContainsUnquoted() throws {
+        // Unquoted substring also works
+        let results = try engine.execute(expression: "contains:Tap", on: snapshot)
+        XCTAssertGreaterThan(results.count, 0)
+    }
+
+    func testContainsCombinedWithAND() throws {
+        let results = try engine.execute(expression: "UILabel AND contains:\"Tap\"", on: snapshot)
+        XCTAssertTrue(results.allSatisfy { $0.className == "UILabel" })
+        XCTAssertTrue(results.allSatisfy { $0.accessibilityLabel?.localizedCaseInsensitiveContains("Tap") == true })
+    }
 }
+

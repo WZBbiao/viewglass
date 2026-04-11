@@ -62,4 +62,15 @@ final class LKLocatorTests: XCTestCase {
         let loc = LKLocator.parse(".visible")
         XCTAssertEqual(loc.kind, .query)
     }
+
+    func testContainsWithQuotedStringRoutesToQuery() {
+        let loc = LKLocator.parse("contains:\"Feed card\"")
+        XCTAssertEqual(loc.kind, .query)
+        XCTAssertEqual(loc.value, "contains:\"Feed card\"")
+    }
+
+    func testContainsUnquotedRoutesToQuery() {
+        let loc = LKLocator.parse("contains:hello")
+        XCTAssertEqual(loc.kind, .query)
+    }
 }
