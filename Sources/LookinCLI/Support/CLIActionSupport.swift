@@ -88,10 +88,15 @@ func resolveActionTarget(
 
     let resolved = try await services.nodeQuery.resolve(locator: .parse(input), sessionId: sessionId)
     guard let selected = resolved.selectedTarget else {
-        let reason = resolved.matches.isEmpty
-            ? "Locator matched no targets."
-            : "Locator matched \(resolved.matches.count) targets. Refine the locator or disambiguate first."
-        throw LookinCoreError.actionFailed(action: action, reason: reason)
+        if resolved.matches.isEmpty {
+            throw LookinCoreError.actionFailed(action: action, reason: "Locator matched no targets.")
+        }
+        let oids = resolved.matches.map { $0.node.oid }
+        throw LookinCoreError.locatorNotUnique(
+            locator: input,
+            matchCount: resolved.matches.count,
+            matchOids: oids
+        )
     }
     return try ensureCapability(selected, action: action, capability: capability)
 }

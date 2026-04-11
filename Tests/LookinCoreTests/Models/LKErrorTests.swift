@@ -11,6 +11,7 @@ final class LKErrorTests: XCTestCase {
         XCTAssertEqual(LookinCoreError.connectionTimeout.exitCode, 22)
         XCTAssertEqual(LookinCoreError.nodeNotFound(oid: 1).exitCode, 30)
         XCTAssertEqual(LookinCoreError.querySyntaxError(expression: "e", reason: "r").exitCode, 31)
+        XCTAssertEqual(LookinCoreError.locatorNotUnique(locator: "UILabel", matchCount: 3, matchOids: [1, 2, 3]).exitCode, 32)
         XCTAssertEqual(LookinCoreError.screenshotFailed(reason: "r").exitCode, 40)
         XCTAssertEqual(LookinCoreError.attributeModificationFailed(key: "k", reason: "r").exitCode, 50)
         XCTAssertEqual(LookinCoreError.consoleEvalFailed(expression: "e", reason: "r").exitCode, 51)
@@ -26,6 +27,11 @@ final class LKErrorTests: XCTestCase {
         XCTAssertNotNil(LookinCoreError.noAppsFound.errorDescription)
         XCTAssertNotNil(LookinCoreError.sessionNotConnected.errorDescription)
         XCTAssertNotNil(LookinCoreError.nodeNotFound(oid: 1).errorDescription)
+        let err = LookinCoreError.locatorNotUnique(locator: "UILabel", matchCount: 3, matchOids: [4, 5, 6])
+        let desc = err.errorDescription ?? ""
+        XCTAssertTrue(desc.contains("UILabel"))
+        XCTAssertTrue(desc.contains("3"))
+        XCTAssertTrue(desc.contains("4"))
     }
 
     func testErrorResponseCodable() throws {

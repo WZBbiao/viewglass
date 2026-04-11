@@ -8,6 +8,8 @@ public enum LookinCoreError: Error, LocalizedError, Codable {
     case connectionTimeout
     case nodeNotFound(oid: UInt)
     case querySyntaxError(expression: String, reason: String)
+    /// Locator matched more than one node where exactly one is required (mutation commands).
+    case locatorNotUnique(locator: String, matchCount: Int, matchOids: [UInt])
     case screenshotFailed(reason: String)
     case attributeModificationFailed(key: String, reason: String)
     case consoleEvalFailed(expression: String, reason: String)
@@ -35,6 +37,10 @@ public enum LookinCoreError: Error, LocalizedError, Codable {
             return "Node not found with oid: \(oid)"
         case .querySyntaxError(let expr, let reason):
             return "Query syntax error in '\(expr)': \(reason)"
+        case .locatorNotUnique(let locator, let count, let oids):
+            let oidList = oids.prefix(5).map { "\($0)" }.joined(separator: ", ")
+            let suffix = oids.count > 5 ? " …" : ""
+            return "Locator '\(locator)' matched \(count) nodes (oids: \(oidList)\(suffix)). Refine the locator to match exactly one node."
         case .screenshotFailed(let reason):
             return "Screenshot failed: \(reason)"
         case .attributeModificationFailed(let key, let reason):
@@ -67,6 +73,7 @@ public enum LookinCoreError: Error, LocalizedError, Codable {
         case .connectionTimeout: return 22
         case .nodeNotFound: return 30
         case .querySyntaxError: return 31
+        case .locatorNotUnique: return 32
         case .screenshotFailed: return 40
         case .attributeModificationFailed: return 50
         case .consoleEvalFailed: return 51
