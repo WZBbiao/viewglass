@@ -25,6 +25,14 @@ public final class LKProtocolClient: @unchecked Sendable {
     private let _cacheLock = NSLock()
     private static let hierarchyCacheTTL: TimeInterval = 30
 
+    // MARK: - Selector-names cache
+    //
+    // fetchSelectorNames() is called twice per setAttribute (once for setter, once for getter)
+    // and once per invokeMethod / triggerControlTap.  ObjC class selectors never change at
+    // runtime, so a simple in-memory dict keyed by "ClassName:hasArg" eliminates repeated
+    // round-trips for the same class within a single process lifetime.
+    private var _selectorNamesCache: [String: [String]] = [:]
+
     public init() {}
 
     /// Connect to a LookinServer via TCP (simulator or WiFi LAN).
@@ -209,15 +217,27 @@ public final class LKProtocolClient: @unchecked Sendable {
     }
 
     /// Fetch all selector names for a class.
+    /// Results are cached for the process lifetime — ObjC class selectors never change at runtime.
     public func fetchSelectorNames(className: String, hasArg: Bool) async throws -> [String] {
+        let cacheKey = "\(className):\(hasArg)"
+        _cacheLock.lock()
+        if let cached = _selectorNamesCache[cacheKey] {
+            _cacheLock.unlock()
+            return cached
+        }
+        _cacheLock.unlock()
+
         let requestData: NSDictionary = [
             "className": className,
             "hasArg": NSNumber(value: hasArg)
         ]
         let response = try await sendRequest(type: LookinRequestTypeAllSelectorNames, data: requestData)
-        guard let names = response.data as? [String] else {
-            return []
-        }
+        let names = (response.data as? [String]) ?? []
+
+        _cacheLock.lock()
+        _selectorNamesCache[cacheKey] = names
+        _cacheLock.unlock()
+
         return names
     }
 
