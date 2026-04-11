@@ -43,4 +43,8 @@ public final class MockNodeQueryService: NodeQueryServiceProtocol, @unchecked Se
         selectedOid = oid
         return node
     }
+
+    public func nodeCount(expression: String, sessionId: String) async throws -> Int {
+        return try await queryNodes(expression: expression, sessionId: sessionId).count
+    }
 }

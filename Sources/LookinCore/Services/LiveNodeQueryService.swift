@@ -93,6 +93,15 @@ public final class LiveNodeQueryService: NodeQueryServiceProtocol, @unchecked Se
         return try await getNode(oid: oid, sessionId: sessionId)
     }
 
+    public func nodeCount(expression: String, sessionId: String) async throws -> Int {
+        // Always fetch a fresh snapshot so each polling iteration sees live UI state.
+        let snapshot = try await hierarchyService.fetchHierarchy(sessionId: sessionId)
+        cachedSnapshot = snapshot
+        let locator = LKLocator.parse(expression)
+        let resolved = try resolver.resolve(locator: locator, in: snapshot)
+        return resolved.matches.count
+    }
+
     private func resolveAttributeObjectOid(nodeOid: UInt, hierarchy: LookinHierarchyInfo) -> UInt {
         guard let items = hierarchy.displayItems else { return nodeOid }
         if let item = findItem(oid: nodeOid, in: items) {

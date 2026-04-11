@@ -202,12 +202,9 @@ private func poll(
     let rawLocator = String(condition.drop(while: { $0 != ":" }).dropFirst())
 
     while true {
-        let resolved = try await services.nodeQuery.resolve(
-            locator: .parse(rawLocator),
-            sessionId: sessionId
-        )
+        let count = try await services.nodeQuery.nodeCount(expression: rawLocator, sessionId: sessionId)
         pollCount += 1
-        lastMatchCount = resolved.matches.count
+        lastMatchCount = count
 
         let elapsedSeconds = Date().timeIntervalSince(start)
 
