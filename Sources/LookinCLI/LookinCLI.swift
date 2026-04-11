@@ -27,6 +27,7 @@ struct LookinCLI: AsyncParsableCommand {
             RefreshCommand.self,
             WaitCommand.self,
             AttrCommand.self,
+            AssertCommand.self,
             ConsoleCommand.self,
             SelectCommand.self,
             ExportCommand.self,
