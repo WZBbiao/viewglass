@@ -108,4 +108,56 @@ final class LKHierarchySnapshotTests: XCTestCase {
         XCTAssertNotNil(dict["screenScale"])
         XCTAssertNotNil(dict["screenSize"])
     }
+
+    // MARK: - filtered(matching:)
+    // Mock hierarchy: UIWindow(1)→UIView(2)→UIView(3)→[UIButton(4)→UILabel(5), UILabel(6), UIView(7), UIButton(8)]
+
+    func testFilteredByClassKeepsAncestorPath() throws {
+        let snapshot = MockHierarchyService.makeSampleSnapshot()
+        // UILabel matches oid:5 and oid:6
+        let filtered = try snapshot.filtered(matching: "UILabel")
+        let oids = Set(filtered.flatNodes.map { $0.oid })
+        // Must include both labels
+        XCTAssertTrue(oids.contains(5))
+        XCTAssertTrue(oids.contains(6))
+        // Must include ancestors (window, vcView, contentView)
+        XCTAssertTrue(oids.contains(1))
+        XCTAssertTrue(oids.contains(2))
+        XCTAssertTrue(oids.contains(3))
+        // UIButton(4) is parent of UILabel(5) — must be kept as ancestor
+        XCTAssertTrue(oids.contains(4))
+        // Sibling branches without matches must be pruned
+        XCTAssertFalse(oids.contains(7)) // UIView/overlappingView
+        XCTAssertFalse(oids.contains(8)) // UIButton/hiddenButton
+        XCTAssertEqual(filtered.totalNodeCount, 6)
+    }
+
+    func testFilteredMatchingNodeKeepsFullSubtree() throws {
+        let snapshot = MockHierarchyService.makeSampleSnapshot()
+        // UIButton matches oid:4 (with child 5) and oid:8 — both kept with full subtree
+        let filtered = try snapshot.filtered(matching: "UIButton")
+        let oids = Set(filtered.flatNodes.map { $0.oid })
+        XCTAssertTrue(oids.contains(4))
+        XCTAssertTrue(oids.contains(5)) // child of oid:4 — included as part of subtree
+        XCTAssertTrue(oids.contains(8))
+        // Non-matching siblings without matches pruned
+        XCTAssertFalse(oids.contains(6))
+        XCTAssertFalse(oids.contains(7))
+    }
+
+    func testFilteredWithNoMatchReturnsEmptySnapshot() throws {
+        let snapshot = MockHierarchyService.makeSampleSnapshot()
+        let filtered = try snapshot.filtered(matching: "UIScrollView")
+        XCTAssertEqual(filtered.totalNodeCount, 0)
+        XCTAssertTrue(filtered.windows.isEmpty)
+    }
+
+    func testFilteredWithLocatorExpression() throws {
+        let snapshot = MockHierarchyService.makeSampleSnapshot()
+        let filtered = try snapshot.filtered(matching: "UIButton AND .visible")
+        // Only visible UIButton is oid:4
+        let oids = Set(filtered.flatNodes.map { $0.oid })
+        XCTAssertTrue(oids.contains(4))
+        XCTAssertFalse(oids.contains(8)) // hidden UIButton pruned
+    }
 }

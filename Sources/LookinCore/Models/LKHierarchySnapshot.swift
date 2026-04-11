@@ -107,3 +107,34 @@ public struct LKNodeTree: Codable, Equatable, Sendable {
         return result
     }
 }
+
+// MARK: - Locator filtering
+
+public extension LKHierarchySnapshot {
+    /// Returns a new snapshot containing only nodes that match `locator` (and their ancestor
+    /// paths from each window root).  Matching nodes are kept with their full subtree intact;
+    /// non-matching nodes are kept only when they lie on the path to a matching node.
+    func filtered(matching locator: String) throws -> LKHierarchySnapshot {
+        let matchingNodes = try LKQueryEngine().execute(expression: locator, on: self)
+        let matchingOids = Set(matchingNodes.map { $0.oid })
+        let pruned = windows.compactMap { pruneWindowToMatching($0, matchingOids: matchingOids) }
+        return LKHierarchySnapshot(
+            snapshotId: snapshotId,
+            appInfo: appInfo,
+            windows: pruned,
+            fetchedAt: fetchedAt,
+            serverVersion: serverVersion,
+            screenScale: screenScale,
+            screenSize: screenSize
+        )
+    }
+
+    private func pruneWindowToMatching(_ tree: LKNodeTree, matchingOids: Set<UInt>) -> LKNodeTree? {
+        if matchingOids.contains(tree.node.oid) {
+            return tree
+        }
+        let keptChildren = tree.children.compactMap { pruneWindowToMatching($0, matchingOids: matchingOids) }
+        guard !keptChildren.isEmpty else { return nil }
+        return LKNodeTree(node: tree.node, children: keptChildren)
+    }
+}

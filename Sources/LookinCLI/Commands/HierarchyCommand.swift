@@ -28,6 +28,9 @@ struct HierarchyDump: AsyncParsableCommand {
     @Option(name: .long, help: "Maximum depth to display")
     var maxDepth: Int?
 
+    @Option(name: .long, help: "Filter to nodes matching this locator expression (keeps ancestor path for context)")
+    var filter: String?
+
     mutating func run() async throws {
         let services = ServiceContainer.makeLive()
         defer { services.shutdown() }
@@ -35,6 +38,9 @@ struct HierarchyDump: AsyncParsableCommand {
             var snapshot = try await services.hierarchy.fetchHierarchy(sessionId: try resolveSession(session, services: services))
             if let maxDepth = maxDepth {
                 snapshot = filterByDepth(snapshot, maxDepth: maxDepth)
+            }
+            if let locator = filter {
+                snapshot = try filterByLocator(snapshot, locator: locator)
             }
             if compact {
                 OutputFormatter.printHierarchyCompact(snapshot, mode: json ? .json : .human)
@@ -69,5 +75,9 @@ struct HierarchyDump: AsyncParsableCommand {
         }
         let children = tree.children.map { pruneTree($0, currentDepth: currentDepth + 1, maxDepth: maxDepth) }
         return LKNodeTree(node: tree.node, children: children)
+    }
+
+    private func filterByLocator(_ snapshot: LKHierarchySnapshot, locator: String) throws -> LKHierarchySnapshot {
+        try snapshot.filtered(matching: locator)
     }
 }
