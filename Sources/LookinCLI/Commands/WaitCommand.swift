@@ -6,7 +6,7 @@ struct WaitCommand: AsyncParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "wait",
         abstract: "Poll until a UI condition is met or a timeout elapses",
-        subcommands: [WaitAppears.self, WaitGone.self]
+        subcommands: [WaitAppears.self, WaitGone.self, WaitAttr.self]
     )
 }
 
@@ -85,6 +85,98 @@ struct WaitGone: AsyncParsableCommand {
             if !result.met {
                 throw ExitCode(1)
             }
+        } catch let error as LookinCoreError {
+            if shared.json { JSONOutput.printError(error: error) } else { printStderr(error.localizedDescription) }
+            throw ExitCode(error.exitCode)
+        }
+    }
+}
+
+struct WaitAttr: AsyncParsableCommand {
+    static let configuration = CommandConfiguration(
+        commandName: "attr",
+        abstract: "Wait until a node attribute satisfies a condition"
+    )
+
+    @Argument(help: "Locator: class name, OID, accessibility identifier, or query expression")
+    var locator: String
+
+    @Option(name: .long, help: "Attribute key to check (same key as 'attr get --json' output)")
+    var key: String
+
+    @Option(name: .long, help: "Pass when attribute value equals this string (exact, case-sensitive)")
+    var equals: String?
+
+    @Option(name: .long, help: "Pass when attribute value contains this substring (case-insensitive)")
+    var contains: String?
+
+    @OptionGroup var shared: WaitSharedOptions
+
+    mutating func run() async throws {
+        guard equals != nil || contains != nil else {
+            printStderr("Either --equals or --contains must be specified")
+            throw ExitCode(1)
+        }
+
+        let services = ServiceContainer.makeLive()
+        defer { services.shutdown() }
+        do {
+            let sessionId = try resolveSession(shared.session, services: services)
+
+            // Resolve locator once to obtain the target OID.
+            let resolved = try await resolveActionTarget(
+                locator,
+                services: services,
+                sessionId: sessionId,
+                action: "wait-attr",
+                capability: "inspect"
+            )
+            let targetOid = resolved.targets.inspectOid
+            let node = resolved.node
+
+            let start = Date()
+            var pollCount = 0
+            var met = false
+
+            while true {
+                // getAttributes calls fetchHierarchy(forceRefresh: true) internally,
+                // so each poll gets live data from the device.
+                let groups = try await services.nodeQuery.getAttributes(oid: targetOid, sessionId: sessionId)
+                let flat = FlatNodeAttributes.make(oid: node.oid, className: node.className, groups: groups)
+                pollCount += 1
+
+                if let attrVal = flat.attributes[key] {
+                    let current = attrVal.stringValue
+                    let matched: Bool
+                    if let eq = equals {
+                        matched = current == eq
+                    } else {
+                        matched = current.localizedCaseInsensitiveContains(contains!)
+                    }
+                    if matched {
+                        met = true
+                        break
+                    }
+                }
+
+                let elapsed = Date().timeIntervalSince(start)
+                if elapsed >= shared.timeout { break }
+                try await Task.sleep(nanoseconds: UInt64(shared.intervalMs) * 1_000_000)
+            }
+
+            let elapsed = Date().timeIntervalSince(start)
+            let conditionDesc = equals != nil
+                ? "attr:\(key)=\(equals!)"
+                : "attr:\(key)~\(contains!)"
+            let result = LKWaitResult(
+                condition: conditionDesc,
+                met: met,
+                elapsedSeconds: elapsed,
+                pollCount: pollCount,
+                matchCount: met ? 1 : 0
+            )
+            OutputFormatter.printWaitResult(result, mode: shared.json ? .json : .human)
+            if !met { throw ExitCode(1) }
         } catch let error as LookinCoreError {
             if shared.json { JSONOutput.printError(error: error) } else { printStderr(error.localizedDescription) }
             throw ExitCode(error.exitCode)

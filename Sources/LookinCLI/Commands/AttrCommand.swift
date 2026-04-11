@@ -179,6 +179,18 @@ enum FlatAttributeValue: Encodable {
         }
     }
 
+    /// String representation for comparison (e.g. in `wait attr --equals`).
+    var stringValue: String {
+        switch self {
+        case .string(let s): return s
+        case .number(let n):
+            if n == n.rounded() && !n.isInfinite { return String(Int(n)) }
+            return String(n)
+        case .bool(let b): return b ? "true" : "false"
+        case .null: return ""
+        }
+    }
+
     func encode(to encoder: Encoder) throws {
         var container = encoder.singleValueContainer()
         switch self {

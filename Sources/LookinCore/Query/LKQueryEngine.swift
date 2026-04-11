@@ -20,8 +20,10 @@ public final class LKQueryEngine: Sendable {
     /// - `class:UIButton` — explicit class match
     /// - `controller:UIAlertController` — match by hosting UIViewController class
     /// - `depth:3` — match by depth level
-    /// - `parent:UIView` — match nodes whose parent class matches
+    /// - `parent:UIView` — match nodes whose direct parent class matches
+    /// - `ancestor:UIScrollView` — match nodes with any ancestor of the given class
     /// - `contains:"text"` — match nodes whose accessibilityLabel contains substring (case-insensitive)
+    /// - `text:"substring"` — match nodes whose visible text (UILabel.text / button title) contains substring (case-insensitive)
     /// - Logical operators: `AND`, `OR`, `NOT` (case insensitive)
     /// - Parentheses for grouping: `(UIButton OR UILabel) AND .visible`
     public func execute(expression: String, on snapshot: LKHierarchySnapshot) throws -> [LKNode] {
@@ -125,6 +127,20 @@ public final class LKQueryEngine: Sendable {
             }
         }
 
+        // ancestor:ClassName — match nodes with any ancestor of the given class
+        if expr.hasPrefix("ancestor:") {
+            let ancestorClass = String(expr.dropFirst(9))
+            return { node in
+                var parentOid = node.parentOid
+                while let pOid = parentOid {
+                    guard let parent = snapshot.findNode(oid: pOid) else { break }
+                    if parent.className == ancestorClass { return true }
+                    parentOid = parent.parentOid
+                }
+                return false
+            }
+        }
+
         // contains:"substring" — accessibilityLabel contains (case-insensitive)
         if expr.hasPrefix("contains:") {
             let raw = String(expr.dropFirst(9))
@@ -135,6 +151,22 @@ public final class LKQueryEngine: Sendable {
                 substring = raw
             }
             return { $0.accessibilityLabel?.localizedCaseInsensitiveContains(substring) == true }
+        }
+
+        // text:"substring" — visible display text contains substring (case-insensitive)
+        // Matches customDisplayTitle (UILabel.text, UIButton.title, etc.) or accessibilityLabel.
+        if expr.hasPrefix("text:") {
+            let raw = String(expr.dropFirst(5))
+            let substring: String
+            if raw.hasPrefix("\"") && raw.hasSuffix("\"") && raw.count >= 2 {
+                substring = String(raw.dropFirst().dropLast())
+            } else {
+                substring = raw
+            }
+            return { node in
+                (node.customDisplayTitle?.localizedCaseInsensitiveContains(substring) == true) ||
+                (node.accessibilityLabel?.localizedCaseInsensitiveContains(substring) == true)
+            }
         }
 
         // #accessibilityIdentifier

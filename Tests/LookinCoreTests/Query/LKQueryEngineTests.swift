@@ -171,5 +171,72 @@ final class LKQueryEngineTests: XCTestCase {
         XCTAssertTrue(results.allSatisfy { $0.className == "UILabel" })
         XCTAssertTrue(results.allSatisfy { $0.accessibilityLabel?.localizedCaseInsensitiveContains("Tap") == true })
     }
+
+    // MARK: - ancestor:
+
+    func testAncestorMatchesDirectParent() throws {
+        // buttonLabel (oid:5) is a direct child of UIButton (oid:4)
+        let results = try engine.execute(expression: "ancestor:UIButton", on: snapshot)
+        XCTAssertEqual(results.count, 1)
+        XCTAssertEqual(results[0].oid, 5)
+        XCTAssertEqual(results[0].className, "UILabel")
+    }
+
+    func testAncestorMatchesTransitiveAncestor() throws {
+        // buttonLabel (5) has UIView (3) as grandparent — should match ancestor:UIView
+        let results = try engine.execute(expression: "ancestor:UIView", on: snapshot)
+        // Nodes with a UIView ancestor: contentView(3), button(4), buttonLabel(5), label(6), overlap(7), hiddenBtn(8)
+        XCTAssertEqual(results.count, 6)
+    }
+
+    func testAncestorNoMatchOnRoot() throws {
+        // UIWindow (1) and viewController UIView (2) have no UIView ancestor
+        let results = try engine.execute(expression: "ancestor:UIButton", on: snapshot)
+        XCTAssertTrue(results.allSatisfy { $0.oid != 1 && $0.oid != 2 })
+    }
+
+    func testAncestorCombinedWithAND() throws {
+        // UILabel whose ancestor is UIButton → buttonLabel only
+        let results = try engine.execute(expression: "UILabel AND ancestor:UIButton", on: snapshot)
+        XCTAssertEqual(results.count, 1)
+        XCTAssertEqual(results[0].oid, 5)
+    }
+
+    func testAncestorNoMatch() throws {
+        let results = try engine.execute(expression: "ancestor:UIScrollView", on: snapshot)
+        XCTAssertEqual(results.count, 0)
+    }
+
+    // MARK: - text:
+
+    func testTextMatchesCustomDisplayTitle() throws {
+        // viewController UIView (2) has customDisplayTitle "ViewController.view"
+        let results = try engine.execute(expression: "text:\"ViewController\"", on: snapshot)
+        XCTAssertGreaterThan(results.count, 0)
+        XCTAssertTrue(results.contains { $0.oid == 2 })
+    }
+
+    func testTextMatchesAccessibilityLabelAsFallback() throws {
+        // buttonLabel (5) has accessibilityLabel "Tap me", no customDisplayTitle
+        let results = try engine.execute(expression: "text:\"Tap\"", on: snapshot)
+        XCTAssertGreaterThan(results.count, 0)
+        XCTAssertTrue(results.contains { $0.oid == 5 })
+    }
+
+    func testTextCaseInsensitive() throws {
+        let results = try engine.execute(expression: "text:\"welcome\"", on: snapshot)
+        XCTAssertGreaterThan(results.count, 0)
+    }
+
+    func testTextNoMatch() throws {
+        let results = try engine.execute(expression: "text:\"ZZZnonexistent\"", on: snapshot)
+        XCTAssertEqual(results.count, 0)
+    }
+
+    func testTextCombinedWithAND() throws {
+        let results = try engine.execute(expression: "UILabel AND text:\"Tap\"", on: snapshot)
+        XCTAssertTrue(results.allSatisfy { $0.className == "UILabel" })
+        XCTAssertGreaterThan(results.count, 0)
+    }
 }
 
