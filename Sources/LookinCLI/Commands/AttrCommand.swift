@@ -155,7 +155,13 @@ struct FlatNodeAttributes: Encodable {
                 let key = LKAttributeRegistry.readableName(forAttrIdentifier: attr.key)
                     ?? LKAttributeRegistry.readableName(forAttrIdentifier: attr.displayName)
                     ?? (attr.displayName.isEmpty ? attr.key : attr.displayName)
-                dict[key] = FlatAttributeValue(attr.value)
+                var flatVal = FlatAttributeValue(attr.value)
+                // Map UIKit enum integers to human-readable names (e.g. contentMode 2 → "scaleAspectFill").
+                if case .number(let n) = flatVal, n == n.rounded(), !n.isInfinite,
+                   let name = LKAttributeRegistry.enumName(forKey: key, intValue: Int(n)) {
+                    flatVal = .string(name)
+                }
+                dict[key] = flatVal
             }
         }
         return FlatNodeAttributes(oid: oid, className: className, attributes: dict)

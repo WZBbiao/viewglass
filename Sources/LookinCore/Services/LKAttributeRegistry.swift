@@ -252,6 +252,90 @@ public enum LKAttributeRegistry {
         attrIdentifierReadableNames[id]
     }
 
+    // MARK: - Enum Integer → Name Mapping
+
+    /// Maps readable attribute key names (post-resolution) that carry UIKit enum integers
+    /// to dictionaries of int value → human-readable string (e.g. "contentMode" 2 → "scaleAspectFill").
+    private static let enumNames: [String: [Int: String]] = [
+        "contentMode": [
+            0: "scaleToFill",
+            1: "scaleAspectFit",
+            2: "scaleAspectFill",
+            3: "redraw",
+            4: "center",
+            5: "top",
+            6: "bottom",
+            7: "left",
+            8: "right",
+            9: "topLeft",
+            10: "topRight",
+            11: "bottomLeft",
+            12: "bottomRight",
+        ],
+        "textAlignment": [
+            0: "left",
+            1: "center",
+            2: "right",
+            3: "justified",
+            4: "natural",
+        ],
+        "lineBreakMode": [
+            0: "wordWrap",
+            1: "charWrap",
+            2: "clip",
+            3: "truncatingHead",
+            4: "truncatingTail",
+            5: "truncatingMiddle",
+        ],
+        "axis": [
+            0: "horizontal",
+            1: "vertical",
+        ],
+        "alignment": [      // UIStackView.Alignment
+            0: "fill",
+            1: "leading",
+            2: "firstBaseline",
+            3: "center",
+            4: "trailing",
+            5: "lastBaseline",
+        ],
+        "stackAlignment": [
+            0: "fill",
+            1: "leading",
+            2: "firstBaseline",
+            3: "center",
+            4: "trailing",
+            5: "lastBaseline",
+        ],
+        "distribution": [   // UIStackView.Distribution
+            0: "fill",
+            1: "fillEqually",
+            2: "fillProportionally",
+            3: "equalSpacing",
+            4: "equalCentering",
+        ],
+        "contentVerticalAlignment": [
+            0: "center",
+            1: "top",
+            2: "bottom",
+            3: "fill",
+        ],
+        "contentHorizontalAlignment": [
+            0: "center",
+            1: "left",
+            2: "right",
+            3: "fill",
+            4: "leading",
+            5: "trailing",
+        ],
+    ]
+
+    /// Returns the human-readable name for a UIKit enum integer value at the given
+    /// readable attribute key, or nil if no mapping exists.
+    public static func enumName(forKey key: String, intValue: Int) -> String? {
+        enumNames[key]?[intValue]
+    }
+
     // MARK: - Value Parsing
 
     /// Parse a string value into the appropriate NSObject for the given attribute type.
