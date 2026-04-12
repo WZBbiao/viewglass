@@ -452,37 +452,40 @@ public final class LiveSessionService: SessionServiceProtocol, @unchecked Sendab
         target: DirectConnectionTarget,
         originalIdentifier: String
     ) async throws -> LKAppDescriptor {
-        let client = LKProtocolClient()
-        do {
-            try await client.connect(host: "127.0.0.1", port: target.port)
-            let appInfo = try await client.fetchAppInfo(needImages: false)
-            guard appInfo.appBundleIdentifier == target.bundleIdentifier else {
-                client.disconnect()
+        if LKPortConstants.devicePorts.contains(target.port) {
+            let devices = await usbmuxdDevices()
+            guard let udid = devices.first?.udid else {
+                throw LookinCoreError.connectionFailed(host: "127.0.0.1", port: target.port)
+            }
+            let probe = await probeUSBApp(deviceIdentifier: udid, remotePort: target.port)
+            guard let app = probe.app, app.bundleIdentifier == target.bundleIdentifier else {
                 throw LookinCoreError.appNotFound(identifier: originalIdentifier)
             }
-
-            let deviceType: LKAppDescriptor.DeviceType = LKPortConstants.simulatorPorts.contains(target.port) ? .simulator : .device
-            let deviceIdentifier: String?
-            if deviceType == .device {
-                let identifiers = usbForwardManager.connectedDeviceIdentifiers()
-                deviceIdentifier = identifiers.count == 1 ? identifiers[0] : nil
-            } else {
-                deviceIdentifier = nil
-            }
-
-            let app = LKBridgeConverter.convertAppInfo(
-                appInfo,
-                host: "127.0.0.1",
-                port: target.port,
-                remotePort: LKPortConstants.devicePorts.contains(target.port) ? target.port : nil,
-                deviceType: deviceType,
-                deviceIdentifier: deviceIdentifier
-            )
-            client.disconnect()
             return app
-        } catch {
-            client.disconnect()
-            throw error
+        } else {
+            let client = LKProtocolClient()
+            do {
+                try await client.connect(host: "127.0.0.1", port: target.port)
+                let appInfo = try await client.fetchAppInfo(needImages: false)
+                guard appInfo.appBundleIdentifier == target.bundleIdentifier else {
+                    client.disconnect()
+                    throw LookinCoreError.appNotFound(identifier: originalIdentifier)
+                }
+
+                let app = LKBridgeConverter.convertAppInfo(
+                    appInfo,
+                    host: "127.0.0.1",
+                    port: target.port,
+                    remotePort: nil,
+                    deviceType: .simulator,
+                    deviceIdentifier: nil
+                )
+                client.disconnect()
+                return app
+            } catch {
+                client.disconnect()
+                throw error
+            }
         }
     }
 
@@ -490,37 +493,9 @@ public final class LiveSessionService: SessionServiceProtocol, @unchecked Sendab
         target: DirectConnectionTarget,
         originalIdentifier: String
     ) async throws -> (LKProtocolClient, LKAppDescriptor) {
-        let client = LKProtocolClient()
-        do {
-            try await client.connect(host: "127.0.0.1", port: target.port)
-            let appInfo = try await client.fetchAppInfo(needImages: false)
-            guard appInfo.appBundleIdentifier == target.bundleIdentifier else {
-                client.disconnect()
-                throw LookinCoreError.appNotFound(identifier: originalIdentifier)
-            }
-
-            let deviceType: LKAppDescriptor.DeviceType = LKPortConstants.simulatorPorts.contains(target.port) ? .simulator : .device
-            let deviceIdentifier: String?
-            if deviceType == .device {
-                let identifiers = usbForwardManager.connectedDeviceIdentifiers()
-                deviceIdentifier = identifiers.count == 1 ? identifiers[0] : nil
-            } else {
-                deviceIdentifier = nil
-            }
-
-            let app = LKBridgeConverter.convertAppInfo(
-                appInfo,
-                host: "127.0.0.1",
-                port: target.port,
-                remotePort: LKPortConstants.devicePorts.contains(target.port) ? target.port : nil,
-                deviceType: deviceType,
-                deviceIdentifier: deviceIdentifier
-            )
-            return (client, app)
-        } catch {
-            client.disconnect()
-            throw error
-        }
+        let app = try await connectDirectApp(target: target, originalIdentifier: originalIdentifier)
+        let client = try await connectClient(for: app)
+        return (client, app)
     }
 
     private func makeConnectedSession(for app: LKAppDescriptor) async throws -> LKSessionDescriptor {

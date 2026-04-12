@@ -82,7 +82,6 @@ node_count() {
 if [[ -n "$SESSION_OVERRIDE" ]]; then
   SESSION="$SESSION_OVERRIDE"
 else
-  # Try to auto-discover via apps list; fall back to known default
   APPS_JSON="$("$BIN" apps list --json 2>/dev/null || true)"
   if [[ -n "$APPS_JSON" ]]; then
     SESSION="$(printf '%s' "$APPS_JSON" | python3 -c "
@@ -99,6 +98,39 @@ else:
   fi
 fi
 
+# Detect real device: session deviceType is device
+IS_REAL_DEVICE=false
+if [[ -n "${APPS_JSON:-}" ]]; then
+  IS_REAL_DEVICE="$(printf '%s' "$APPS_JSON" | python3 -c "
+import json, sys
+apps = json.loads(sys.stdin.read())
+for a in apps:
+    port = str(a.get('port',''))
+    bundle = a.get('bundleIdentifier','')
+    session_id = bundle + '@' + port
+    if session_id == sys.argv[1] or port == sys.argv[1]:
+        print('true' if a.get('deviceType') == 'device' else 'false')
+        sys.exit(0)
+print('false')
+" "$SESSION" 2>/dev/null)" || IS_REAL_DEVICE=false
+fi
+
+sim_relaunch() {
+  if [[ "$IS_REAL_DEVICE" == "true" ]]; then
+    echo "  (INFO: skipping app relaunch on real device — attempting to pop to Home screen)"
+    "$BIN" tap _UIButtonBarButton $S >/dev/null 2>&1 || true
+    sleep 0.3
+    "$BIN" tap _UIButtonBarButton $S >/dev/null 2>&1 || true
+    sleep 0.3
+    "$BIN" tap "#switch_tab_home" $S >/dev/null 2>&1 || true
+    sleep 0.5
+  else
+    xcrun simctl terminate booted "$DEMO_BUNDLE" >/dev/null 2>&1 || true
+    xcrun simctl launch    booted "$DEMO_BUNDLE" >/dev/null 2>&1 || true
+    sleep 1.5
+  fi
+}
+
 echo "Using session: $SESSION"
 S="--session $SESSION"
 
@@ -109,9 +141,7 @@ S="--session $SESSION"
 
 section "0 - Session & hierarchy"
 # Ensure a clean launch so we start from the Home screen.
-xcrun simctl terminate booted "$DEMO_BUNDLE" >/dev/null 2>&1 || true
-xcrun simctl launch booted "$DEMO_BUNDLE" >/dev/null 2>&1 || true
-sleep 1.5
+sim_relaunch
 
 if vg refresh $S --json >/dev/null 2>&1; then
   pass "refresh succeeded (session is live)"
@@ -189,9 +219,7 @@ fi
 
 section "5 - Feed tab: scroll and scroll --animated"
 # Re-launch to get back to Home, then navigate to Feed tab
-xcrun simctl terminate booted "$DEMO_BUNDLE" >/dev/null 2>&1 || true
-xcrun simctl launch booted "$DEMO_BUNDLE" >/dev/null 2>&1 || true
-sleep 1.5
+sim_relaunch
 vg refresh $S --json >/dev/null
 
 vg tap "#switch_tab_feed" $S --json >/dev/null
@@ -285,9 +313,7 @@ fi
 
 section "8 - enum names in attr get --json"
 # Re-launch and navigate to gestures screen for a live UILabel
-xcrun simctl terminate booted "$DEMO_BUNDLE" >/dev/null 2>&1 || true
-xcrun simctl launch booted "$DEMO_BUNDLE" >/dev/null 2>&1 || true
-sleep 1.5
+sim_relaunch
 vg refresh $S --json >/dev/null
 vg tap "#push_gestures_screen" $S --json >/dev/null
 sleep 0.6
@@ -401,9 +427,7 @@ fi
 
 section "13 - wait attr (live polling)"
 # Reset the gesture status to a known initial state by relaunching and navigating.
-xcrun simctl terminate booted "$DEMO_BUNDLE" >/dev/null 2>&1 || true
-xcrun simctl launch booted "$DEMO_BUNDLE" >/dev/null 2>&1 || true
-sleep 1.5
+sim_relaunch
 vg refresh $S --json >/dev/null
 vg tap "#push_gestures_screen" $S --json >/dev/null
 sleep 0.6
@@ -438,9 +462,7 @@ fi
 
 section "14 - UIStackView axis enum name"
 # Navigate to home screen (relaunch) to get #home_buttons_stack in view.
-xcrun simctl terminate booted "$DEMO_BUNDLE" >/dev/null 2>&1 || true
-xcrun simctl launch booted "$DEMO_BUNDLE" >/dev/null 2>&1 || true
-sleep 1.5
+sim_relaunch
 vg refresh $S --json >/dev/null
 
 STACK_ATTR="$(vg attr get "#home_buttons_stack" $S --json)"
