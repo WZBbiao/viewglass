@@ -46,7 +46,8 @@ let package = Package(
                 "LookinCore",
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
             ],
-            path: "Tests/LookinCLITests"
+            path: "Tests/LookinCLITests",
+            resources: [.copy("Fixtures")]
         ),
     ]
 )

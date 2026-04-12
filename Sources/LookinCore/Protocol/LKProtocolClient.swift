@@ -1,6 +1,14 @@
 import Foundation
 import LookinSharedBridge
 
+fileprivate extension NSLock {
+    func sync<T>(_ body: () throws -> T) rethrows -> T {
+        self.lock()
+        defer { self.unlock() }
+        return try body()
+    }
+}
+
 /// High-level protocol client that handles serialization and request lifecycle.
 public final class LKProtocolClient: @unchecked Sendable {
     private var connection: (any LKConnectionProtocol)?
@@ -117,10 +125,7 @@ public final class LKProtocolClient: @unchecked Sendable {
     ///   cached hierarchy is sufficient to resolve OID mappings.
     public func fetchHierarchy(forceRefresh: Bool = false) async throws -> LookinHierarchyInfo {
         if !forceRefresh {
-            _cacheLock.lock()
-            let cached = _cachedHierarchy
-            let cachedAt = _hierarchyCachedAt
-            _cacheLock.unlock()
+            let (cached, cachedAt) = _cacheLock.sync { (_cachedHierarchy, _hierarchyCachedAt) }
             if let h = cached,
                let t = cachedAt,
                Date().timeIntervalSince(t) < Self.hierarchyCacheTTL {
@@ -134,20 +139,20 @@ public final class LKProtocolClient: @unchecked Sendable {
         guard let hierarchy = response.data as? LookinHierarchyInfo else {
             throw LookinCoreError.protocolError(reason: "Expected LookinHierarchyInfo in response")
         }
-        _cacheLock.lock()
-        _cachedHierarchy = hierarchy
-        _hierarchyCachedAt = Date()
-        _cacheLock.unlock()
+        _cacheLock.sync {
+            _cachedHierarchy = hierarchy
+            _hierarchyCachedAt = Date()
+        }
         return hierarchy
     }
 
     /// Discard the cached hierarchy.  Call after any operation that may structurally
     /// change the view tree so the next fetchHierarchy() gets a fresh snapshot.
     public func invalidateHierarchyCache() {
-        _cacheLock.lock()
-        _cachedHierarchy = nil
-        _hierarchyCachedAt = nil
-        _cacheLock.unlock()
+        _cacheLock.sync {
+            _cachedHierarchy = nil
+            _hierarchyCachedAt = nil
+        }
     }
 
     /// Fetch display item details, including screenshots and basis visual data.
@@ -220,12 +225,9 @@ public final class LKProtocolClient: @unchecked Sendable {
     /// Results are cached for the process lifetime — ObjC class selectors never change at runtime.
     public func fetchSelectorNames(className: String, hasArg: Bool) async throws -> [String] {
         let cacheKey = "\(className):\(hasArg)"
-        _cacheLock.lock()
-        if let cached = _selectorNamesCache[cacheKey] {
-            _cacheLock.unlock()
+        if let cached = _cacheLock.sync({ _selectorNamesCache[cacheKey] }) {
             return cached
         }
-        _cacheLock.unlock()
 
         let requestData: NSDictionary = [
             "className": className,
@@ -234,9 +236,9 @@ public final class LKProtocolClient: @unchecked Sendable {
         let response = try await sendRequest(type: LookinRequestTypeAllSelectorNames, data: requestData)
         let names = (response.data as? [String]) ?? []
 
-        _cacheLock.lock()
-        _selectorNamesCache[cacheKey] = names
-        _cacheLock.unlock()
+        _cacheLock.sync {
+            _selectorNamesCache[cacheKey] = names
+        }
 
         return names
     }
@@ -450,7 +452,9 @@ public final class LKProtocolClient: @unchecked Sendable {
             throw error
         } catch {
             do {
-                if let obj = try NSKeyedUnarchiver.unarchiveTopLevelObjectWithData(data) as? LookinConnectionResponseAttachment {
+                let unarchiver = try NSKeyedUnarchiver(forReadingFrom: data)
+                unarchiver.requiresSecureCoding = false
+                if let obj = unarchiver.decodeObject(of: LookinConnectionResponseAttachment.self, forKey: NSKeyedArchiveRootObjectKey) {
                     return obj
                 }
             } catch {
