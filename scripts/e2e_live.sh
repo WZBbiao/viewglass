@@ -262,14 +262,14 @@ fi
 # ── summary ───────────────────────────────────────────────────────────────────
 
 section "7 - attr keys"
-KEYS_TXT="$(vg attr keys $S)"
+KEYS_TXT="$(vg attr keys)"
 if [[ -n "$KEYS_TXT" ]]; then
   pass "attr keys returns non-empty list"
 else
   fail "attr keys returned empty output"
 fi
 
-KEYS_JSON="$(vg attr keys --json $S)"
+KEYS_JSON="$(vg attr keys --json)"
 KEY_COUNT="$(printf '%s' "$KEYS_JSON" | python3 -c "import json,sys; d=json.load(sys.stdin); print(len(d.get('keys', [])))")"
 if [[ "$KEY_COUNT" -gt 0 ]]; then
   pass "attr keys --json returns $KEY_COUNT keys"
