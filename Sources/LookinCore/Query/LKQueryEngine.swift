@@ -10,6 +10,7 @@ public final class LKQueryEngine: Sendable {
     /// - `UILabel` — match by class name (exact)
     /// - `UILabel*` — match by class prefix
     /// - `*Label` — match by class suffix
+    /// - `*View*` — match by class name containing substring (case-insensitive)
     /// - `#accessibilityIdentifier` — match by accessibility identifier
     /// - `@"accessibility label text"` — match by accessibility label
     /// - `.hidden` — filter to hidden nodes
@@ -22,8 +23,8 @@ public final class LKQueryEngine: Sendable {
     /// - `depth:3` — match by depth level
     /// - `parent:UIView` — match nodes whose direct parent class matches
     /// - `ancestor:UIScrollView` — match nodes with any ancestor of the given class
-    /// - `contains:"text"` — match nodes whose accessibilityLabel contains substring (case-insensitive)
-    /// - `text:"substring"` — match nodes whose visible text (UILabel.text / button title) contains substring (case-insensitive)
+    /// - `contains:"text"` — full-text search: UILabel.text, button title, accessibilityLabel, accessibilityIdentifier (case-insensitive)
+    /// - `text:"substring"` — alias for contains:
     /// - Logical operators: `AND`, `OR`, `NOT` (case insensitive)
     /// - Parentheses for grouping: `(UIButton OR UILabel) AND .visible`
     public func execute(expression: String, on snapshot: LKHierarchySnapshot) throws -> [LKNode] {
@@ -141,7 +142,8 @@ public final class LKQueryEngine: Sendable {
             }
         }
 
-        // contains:"substring" — accessibilityLabel contains (case-insensitive)
+        // contains:"substring" — full-text search across all text fields (case-insensitive)
+        // Matches: UILabel.text/button title (customDisplayTitle), accessibilityLabel, accessibilityIdentifier
         if expr.hasPrefix("contains:") {
             let raw = String(expr.dropFirst(9))
             let substring: String
@@ -150,11 +152,14 @@ public final class LKQueryEngine: Sendable {
             } else {
                 substring = raw
             }
-            return { $0.accessibilityLabel?.localizedCaseInsensitiveContains(substring) == true }
+            return { node in
+                (node.customDisplayTitle?.localizedCaseInsensitiveContains(substring) == true) ||
+                (node.accessibilityLabel?.localizedCaseInsensitiveContains(substring) == true) ||
+                (node.accessibilityIdentifier?.localizedCaseInsensitiveContains(substring) == true)
+            }
         }
 
-        // text:"substring" — visible display text contains substring (case-insensitive)
-        // Matches customDisplayTitle (UILabel.text, UIButton.title, etc.) or accessibilityLabel.
+        // text:"substring" — alias for contains: (kept for backward compatibility)
         if expr.hasPrefix("text:") {
             let raw = String(expr.dropFirst(5))
             let substring: String
@@ -165,7 +170,8 @@ public final class LKQueryEngine: Sendable {
             }
             return { node in
                 (node.customDisplayTitle?.localizedCaseInsensitiveContains(substring) == true) ||
-                (node.accessibilityLabel?.localizedCaseInsensitiveContains(substring) == true)
+                (node.accessibilityLabel?.localizedCaseInsensitiveContains(substring) == true) ||
+                (node.accessibilityIdentifier?.localizedCaseInsensitiveContains(substring) == true)
             }
         }
 
@@ -186,6 +192,13 @@ public final class LKQueryEngine: Sendable {
         }
 
         // Wildcard class matching
+        if expr.hasPrefix("*") && expr.hasSuffix("*") && expr.count > 2 {
+            let substring = String(expr.dropFirst().dropLast())
+            return {
+                $0.className.localizedCaseInsensitiveContains(substring) ||
+                ($0.hostViewControllerClassName?.localizedCaseInsensitiveContains(substring) ?? false)
+            }
+        }
         if expr.hasPrefix("*") {
             let suffix = String(expr.dropFirst())
             return {
