@@ -383,6 +383,15 @@ main() {
   run_viewglass screenshot screen --session "$SESSION_SPEC" -o "$ARTIFACT_DIR/gestures.png" --json >/dev/null
 
   launch_demo
+  tap_locator "#push_selectable_surfaces_screen"
+  assert_locator_exists "#selection_status"
+  tap_locator "#table_row_label_1"
+  assert_status_text "#selection_status" "Table selected: Profile"
+  tap_locator "#collection_tile_label_2"
+  assert_status_text "#selection_status" "Collection selected: Sunset"
+  run_viewglass screenshot screen --session "$SESSION_SPEC" -o "$ARTIFACT_DIR/selectable-surfaces.png" --json >/dev/null
+
+  launch_demo
   tap_locator "#switch_tab_forms"
   assert_locator_exists "#primary_text_field"
   tap_locator "#switch_tab_feed"

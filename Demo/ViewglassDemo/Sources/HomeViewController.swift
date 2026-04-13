@@ -55,11 +55,15 @@ final class HomeViewController: UIViewController {
         gestures.accessibilityIdentifier = DemoID.pushGestures
         gestures.addTarget(self, action: #selector(showGestures), for: .touchUpInside)
 
+        let selectableSurfaces = makeDemoButton(title: "Open Selectable Surfaces")
+        selectableSurfaces.accessibilityIdentifier = DemoID.pushSelectableSurfaces
+        selectableSurfaces.addTarget(self, action: #selector(showSelectableSurfaces), for: .touchUpInside)
+
         let sheet = makeDemoButton(title: "Show Home Sheet", filled: false)
         sheet.accessibilityIdentifier = DemoID.showHomeSheet
         sheet.addTarget(self, action: #selector(showHomeSheet), for: .touchUpInside)
 
-        [buttons, forms, feed, gestures, sheet].forEach(actions.addArrangedSubview(_:))
+        [buttons, forms, feed, gestures, selectableSurfaces, sheet].forEach(actions.addArrangedSubview(_:))
         intro.addArrangedSubview(actions)
 
         stack.addArrangedSubview(intro)
@@ -96,6 +100,10 @@ final class HomeViewController: UIViewController {
 
     @objc private func showGestures() {
         navigationController?.pushViewController(GesturesViewController(), animated: true)
+    }
+
+    @objc private func showSelectableSurfaces() {
+        navigationController?.pushViewController(SelectableSurfacesViewController(), animated: true)
     }
 
     @objc private func showHomeSheet() {
