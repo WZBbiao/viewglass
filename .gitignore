@@ -13,3 +13,5 @@ Gemfile.lock
 .vscode/
 BUGS.md
 TODO.md
+patch.py
+scripts/claude-lookin-*.sh

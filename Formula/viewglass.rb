@@ -4,7 +4,7 @@ class Viewglass < Formula
   url "https://github.com/WZBbiao/viewglass.git",
       tag: "viewglass-v0.1.0",
       revision: "a07f60c0c91884430b21deb89ed559d08de7029d"
-  license "MIT"
+  license "GPL-3.0-only"
 
   head "https://github.com/WZBbiao/viewglass.git", branch: "main"
 
