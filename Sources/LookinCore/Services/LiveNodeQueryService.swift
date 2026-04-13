@@ -1,0 +1,80 @@
+import Foundation
+import LookinSharedBridge
+
+/// Live node query service that operates on real hierarchy data.
+public final class LiveNodeQueryService: NodeQueryServiceProtocol, @unchecked Sendable {
+    private let sessionService: LiveSessionService
+    private let hierarchyService: LiveHierarchyService
+    private var cachedSnapshot: LKHierarchySnapshot?
+
+    public init(sessionService: LiveSessionService, hierarchyService: LiveHierarchyService) {
+        self.sessionService = sessionService
+        self.hierarchyService = hierarchyService
+    }
+
+    private func getSnapshot(sessionId: String) async throws -> LKHierarchySnapshot {
+        if let cached = cachedSnapshot {
+            return cached
+        }
+        let snapshot = try await hierarchyService.fetchHierarchy(sessionId: sessionId)
+        cachedSnapshot = snapshot
+        return snapshot
+    }
+
+    public func getNode(oid: UInt, sessionId: String) async throws -> LKNode {
+        let snapshot = try await getSnapshot(sessionId: sessionId)
+        guard let node = snapshot.findNode(oid: oid) else {
+            throw LookinCoreError.nodeNotFound(oid: oid)
+        }
+        return node
+    }
+
+    public func getAttributes(oid: UInt, sessionId: String) async throws -> [LKAttributeGroup] {
+        let client = try await sessionService.getClient(for: sessionId)
+        let hierarchy = try await client.fetchHierarchy()
+        let targetOid = resolveAttributeObjectOid(nodeOid: oid, hierarchy: hierarchy)
+        let groups = try await client.fetchAllAttrGroups(oid: targetOid)
+        return groups.map { LKBridgeConverter.convertAttributesGroup($0) }
+    }
+
+    public func queryNodes(expression: String, sessionId: String) async throws -> [LKNode] {
+        // Validate syntax before network request to give clear error on malformed input
+        let trimmed = expression.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty else {
+            throw LookinCoreError.querySyntaxError(expression: expression, reason: "Empty expression")
+        }
+
+        let snapshot = try await getSnapshot(sessionId: sessionId)
+        let engine = LKQueryEngine()
+        return try engine.execute(expression: expression, on: snapshot)
+    }
+
+    public func selectNode(oid: UInt, sessionId: String) async throws -> LKNode {
+        return try await getNode(oid: oid, sessionId: sessionId)
+    }
+
+    private func resolveAttributeObjectOid(nodeOid: UInt, hierarchy: LookinHierarchyInfo) -> UInt {
+        guard let items = hierarchy.displayItems else { return nodeOid }
+        if let item = findItem(oid: nodeOid, in: items) {
+            if let layerOid = item.layerObject?.oid {
+                return UInt(layerOid)
+            }
+            if let viewOid = item.viewObject?.oid {
+                return UInt(viewOid)
+            }
+        }
+        return nodeOid
+    }
+
+    private func findItem(oid: UInt, in items: [LookinDisplayItem]) -> LookinDisplayItem? {
+        for item in items {
+            if UInt(item.layerObject?.oid ?? 0) == oid || UInt(item.viewObject?.oid ?? 0) == oid {
+                return item
+            }
+            if let found = findItem(oid: oid, in: item.subitems ?? []) {
+                return found
+            }
+        }
+        return nil
+    }
+}

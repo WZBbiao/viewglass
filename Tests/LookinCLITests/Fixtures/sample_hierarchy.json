@@ -1,0 +1,119 @@
+{
+  "appInfo": {
+    "appName": "FixtureApp",
+    "bundleIdentifier": "com.fixture.app",
+    "appVersion": "2.0.0",
+    "deviceName": "iPhone 16 Pro",
+    "deviceType": "simulator",
+    "port": 47164,
+    "serverVersion": "1.2.8"
+  },
+  "windows": [
+    {
+      "node": {
+        "oid": 100,
+        "className": "UIWindow",
+        "address": "0xA00100",
+        "frame": {"x": 0, "y": 0, "width": 393, "height": 852},
+        "bounds": {"x": 0, "y": 0, "width": 393, "height": 852},
+        "isHidden": false,
+        "alpha": 1.0,
+        "isUserInteractionEnabled": true,
+        "tag": 0,
+        "clipsToBounds": false,
+        "isOpaque": true,
+        "depth": 0,
+        "childrenOids": [101]
+      },
+      "children": [
+        {
+          "node": {
+            "oid": 101,
+            "className": "UIView",
+            "address": "0xA00101",
+            "frame": {"x": 0, "y": 0, "width": 393, "height": 852},
+            "bounds": {"x": 0, "y": 0, "width": 393, "height": 852},
+            "isHidden": false,
+            "alpha": 1.0,
+            "isUserInteractionEnabled": true,
+            "tag": 0,
+            "clipsToBounds": false,
+            "isOpaque": true,
+            "customDisplayTitle": "MainViewController.view",
+            "depth": 1,
+            "parentOid": 100,
+            "childrenOids": [102, 103, 104]
+          },
+          "children": [
+            {
+              "node": {
+                "oid": 102,
+                "className": "UILabel",
+                "address": "0xA00102",
+                "frame": {"x": 20, "y": 100, "width": 353, "height": 40},
+                "bounds": {"x": 0, "y": 0, "width": 353, "height": 40},
+                "isHidden": false,
+                "alpha": 1.0,
+                "isUserInteractionEnabled": false,
+                "tag": 0,
+                "clipsToBounds": false,
+                "isOpaque": true,
+                "accessibilityLabel": "Welcome to FixtureApp",
+                "accessibilityIdentifier": "welcomeLabel",
+                "depth": 2,
+                "parentOid": 101,
+                "childrenOids": []
+              },
+              "children": []
+            },
+            {
+              "node": {
+                "oid": 103,
+                "className": "UIButton",
+                "address": "0xA00103",
+                "frame": {"x": 100, "y": 400, "width": 193, "height": 50},
+                "bounds": {"x": 0, "y": 0, "width": 193, "height": 50},
+                "isHidden": false,
+                "alpha": 1.0,
+                "isUserInteractionEnabled": true,
+                "tag": 42,
+                "clipsToBounds": false,
+                "isOpaque": true,
+                "accessibilityLabel": "Submit",
+                "accessibilityIdentifier": "submitButton",
+                "depth": 2,
+                "parentOid": 101,
+                "childrenOids": []
+              },
+              "children": []
+            },
+            {
+              "node": {
+                "oid": 104,
+                "className": "UIImageView",
+                "address": "0xA00104",
+                "frame": {"x": 50, "y": 200, "width": 293, "height": 150},
+                "bounds": {"x": 0, "y": 0, "width": 293, "height": 150},
+                "isHidden": false,
+                "alpha": 1.0,
+                "isUserInteractionEnabled": false,
+                "tag": 0,
+                "clipsToBounds": true,
+                "isOpaque": false,
+                "contentMode": "scaleAspectFit",
+                "depth": 2,
+                "parentOid": 101,
+                "childrenOids": []
+              },
+              "children": []
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "fetchedAt": "2026-04-07T10:00:00Z",
+  "serverVersion": "1.2.8",
+  "screenScale": 3.0,
+  "screenSize": {"x": 0, "y": 0, "width": 393, "height": 852}
+}

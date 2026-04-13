@@ -1,0 +1,59 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'viewglass-v*'
+
+jobs:
+  build:
+    runs-on: macos-14
+    strategy:
+      matrix:
+        include:
+          - arch: arm64
+            sdk_arch: arm64
+          - arch: x86_64
+            sdk_arch: x86_64
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build release binary
+        run: |
+          swift build -c release --disable-sandbox \
+            --arch ${{ matrix.sdk_arch }}
+
+      - name: Package binary
+        run: |
+          cp .build/release/viewglass .
+          tar -czf viewglass-macos-${{ matrix.arch }}.tar.gz viewglass
+          shasum -a 256 viewglass-macos-${{ matrix.arch }}.tar.gz > viewglass-macos-${{ matrix.arch }}.tar.gz.sha256
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: viewglass-macos-${{ matrix.arch }}
+          path: |
+            viewglass-macos-${{ matrix.arch }}.tar.gz
+            viewglass-macos-${{ matrix.arch }}.tar.gz.sha256
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            viewglass-macos-arm64/viewglass-macos-arm64.tar.gz
+            viewglass-macos-arm64/viewglass-macos-arm64.tar.gz.sha256
+            viewglass-macos-x86_64/viewglass-macos-x86_64.tar.gz
+            viewglass-macos-x86_64/viewglass-macos-x86_64.tar.gz.sha256
+          generate_release_notes: true
