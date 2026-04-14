@@ -76,4 +76,33 @@ final class LKTargetResolverTests: XCTestCase {
         XCTAssertEqual(resolved.selectedTarget?.targets.controllerOid, 99)
         XCTAssertEqual(resolved.selectedTarget?.capabilities["dismiss"]?.supported, true)
     }
+
+    func testResolveControllerLocatorUsesFuzzyContains() throws {
+        let node = LKNode(
+            oid: 10,
+            primaryOid: 11,
+            oidType: .layer,
+            viewOid: 11,
+            layerOid: 10,
+            className: "_UIAlertControllerPhoneTVMacView",
+            hostViewControllerClassName: "UIAlertController",
+            hostViewControllerOid: 99
+        )
+        let snapshot = LKHierarchySnapshot(
+            appInfo: LKAppDescriptor(
+                appName: "Demo",
+                bundleIdentifier: "com.example.demo",
+                appVersion: "1.0",
+                deviceName: "iPhone",
+                deviceType: .simulator,
+                port: 47164
+            ),
+            windows: [LKNodeTree(node: node)]
+        )
+
+        let resolved = try resolver.resolve(locator: .parse("controller:Alert"), in: snapshot)
+
+        XCTAssertEqual(resolved.matches.count, 1)
+        XCTAssertEqual(resolved.selectedTarget?.node.hostViewControllerClassName, "UIAlertController")
+    }
 }

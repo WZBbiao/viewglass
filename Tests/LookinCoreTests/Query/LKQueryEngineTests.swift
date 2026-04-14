@@ -11,6 +11,12 @@ final class LKQueryEngineTests: XCTestCase {
         XCTAssertTrue(results.allSatisfy { $0.className == "UIButton" })
     }
 
+    func testQueryByClassNameUsesFuzzyContains() throws {
+        let results = try engine.execute(expression: "Label", on: snapshot)
+        XCTAssertEqual(results.count, 2)
+        XCTAssertTrue(results.allSatisfy { $0.className.localizedCaseInsensitiveContains("Label") })
+    }
+
     func testQueryByClassPrefix() throws {
         let results = try engine.execute(expression: "UI*", on: snapshot)
         XCTAssertEqual(results.count, snapshot.totalNodeCount) // All nodes are UI*
@@ -88,8 +94,18 @@ final class LKQueryEngineTests: XCTestCase {
         XCTAssertTrue(results.allSatisfy { $0.hostViewControllerClassName == "ViewController" })
     }
 
+    func testQueryByControllerClassUsesFuzzyContains() throws {
+        let results = try engine.execute(expression: "controller:View", on: snapshot)
+        XCTAssertEqual(results.count, snapshot.totalNodeCount - 1)
+    }
+
     func testPlainControllerClassMatchesHostController() throws {
         let results = try engine.execute(expression: "ViewController", on: snapshot)
+        XCTAssertEqual(results.count, snapshot.totalNodeCount - 1)
+    }
+
+    func testPlainControllerClassUsesFuzzyContains() throws {
+        let results = try engine.execute(expression: "Controller", on: snapshot)
         XCTAssertEqual(results.count, snapshot.totalNodeCount - 1)
     }
 
@@ -101,6 +117,12 @@ final class LKQueryEngineTests: XCTestCase {
     func testQueryByParent() throws {
         let results = try engine.execute(expression: "parent:UIButton", on: snapshot)
         XCTAssertEqual(results.count, 1) // buttonLabel
+        XCTAssertEqual(results[0].className, "UILabel")
+    }
+
+    func testQueryByParentUsesFuzzyContains() throws {
+        let results = try engine.execute(expression: "parent:Button", on: snapshot)
+        XCTAssertEqual(results.count, 1)
         XCTAssertEqual(results[0].className, "UILabel")
     }
 
@@ -182,6 +204,12 @@ final class LKQueryEngineTests: XCTestCase {
         XCTAssertEqual(results[0].className, "UILabel")
     }
 
+    func testAncestorUsesFuzzyContains() throws {
+        let results = try engine.execute(expression: "ancestor:Button", on: snapshot)
+        XCTAssertEqual(results.count, 1)
+        XCTAssertEqual(results[0].oid, 5)
+    }
+
     func testAncestorMatchesTransitiveAncestor() throws {
         // buttonLabel (5) has UIView (3) as grandparent — should match ancestor:UIView
         let results = try engine.execute(expression: "ancestor:UIView", on: snapshot)
@@ -239,4 +267,3 @@ final class LKQueryEngineTests: XCTestCase {
         XCTAssertGreaterThan(results.count, 0)
     }
 }
-

@@ -43,7 +43,7 @@ public final class LKTargetResolver: Sendable {
         case .controller:
             return snapshot.flatNodes.filter {
                 guard let className = $0.hostViewControllerClassName else { return false }
-                return className == locator.value || className.hasSuffix(".\(locator.value)")
+                return matchesClass(className, query: locator.value)
             }
         case .query:
             return try queryEngine.execute(expression: locator.value, on: snapshot)
@@ -88,5 +88,20 @@ public final class LKTargetResolver: Sendable {
                 : LKCapability(supported: false, reason: "target is not a UITextField or UITextView"),
             "invoke": LKCapability(supported: true)
         ]
+    }
+
+    private func matchesClass(_ candidate: String, query: String) -> Bool {
+        let trimmedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedQuery.isEmpty else { return false }
+
+        if candidate.localizedCaseInsensitiveContains(trimmedQuery) {
+            return true
+        }
+
+        if let simpleName = candidate.split(separator: ".").last {
+            return String(simpleName).localizedCaseInsensitiveContains(trimmedQuery)
+        }
+
+        return false
     }
 }

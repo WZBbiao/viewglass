@@ -7,7 +7,7 @@ public final class LKQueryEngine: Sendable {
     /// Executes a query expression against a hierarchy snapshot.
     ///
     /// Supported expression syntax:
-    /// - `UILabel` — match by class name (exact)
+    /// - `UILabel` — match by class name or hosting controller class using fuzzy contains (case-insensitive)
     /// - `UILabel*` — match by class prefix
     /// - `*Label` — match by class suffix
     /// - `*View*` — match by class name containing substring (case-insensitive)
@@ -95,18 +95,18 @@ public final class LKQueryEngine: Sendable {
             return { $0.tag == tag }
         }
 
-        // class:ClassName
+        // class:ClassName (fuzzy contains, case-insensitive)
         if expr.hasPrefix("class:") {
             let className = String(expr.dropFirst(6))
-            return { $0.className == className }
+            return { self.matchesClass($0.className, query: className) }
         }
 
-        // controller:ClassName
+        // controller:ClassName (fuzzy contains, case-insensitive)
         if expr.hasPrefix("controller:") {
             let className = String(expr.dropFirst(11))
             return {
                 guard let hostClass = $0.hostViewControllerClassName else { return false }
-                return hostClass == className || hostClass.hasSuffix(".\(className)")
+                return self.matchesClass(hostClass, query: className)
             }
         }
 
@@ -118,24 +118,24 @@ public final class LKQueryEngine: Sendable {
             return { $0.depth == depth }
         }
 
-        // parent:ClassName
+        // parent:ClassName (fuzzy contains, case-insensitive)
         if expr.hasPrefix("parent:") {
             let parentClass = String(expr.dropFirst(7))
             return { node in
                 guard let parentOid = node.parentOid else { return false }
                 guard let parentNode = snapshot.findNode(oid: parentOid) else { return false }
-                return parentNode.className == parentClass
+                return self.matchesClass(parentNode.className, query: parentClass)
             }
         }
 
-        // ancestor:ClassName — match nodes with any ancestor of the given class
+        // ancestor:ClassName — match nodes with any ancestor of the given class (fuzzy contains, case-insensitive)
         if expr.hasPrefix("ancestor:") {
             let ancestorClass = String(expr.dropFirst(9))
             return { node in
                 var parentOid = node.parentOid
                 while let pOid = parentOid {
                     guard let parent = snapshot.findNode(oid: pOid) else { break }
-                    if parent.className == ancestorClass { return true }
+                    if self.matchesClass(parent.className, query: ancestorClass) { return true }
                     parentOid = parent.parentOid
                 }
                 return false
@@ -214,12 +214,11 @@ public final class LKQueryEngine: Sendable {
             }
         }
 
-        // Plain class name (exact match) — also match hosting controller class
+        // Plain class name (default fuzzy contains, case-insensitive) — also match hosting controller class
         if expr.first?.isUpperCase == true || expr.first == "_" || expr.contains(".") {
             return {
-                $0.className == expr ||
-                $0.hostViewControllerClassName == expr ||
-                ($0.hostViewControllerClassName?.hasSuffix(".\(expr)") ?? false)
+                self.matchesClass($0.className, query: expr) ||
+                ($0.hostViewControllerClassName.map { self.matchesClass($0, query: expr) } ?? false)
             }
         }
 
@@ -273,6 +272,21 @@ public final class LKQueryEngine: Sendable {
         }
 
         return parts.count > 1 ? parts : nil
+    }
+
+    private func matchesClass(_ candidate: String, query: String) -> Bool {
+        let trimmedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedQuery.isEmpty else { return false }
+
+        if candidate.localizedCaseInsensitiveContains(trimmedQuery) {
+            return true
+        }
+
+        if let simpleName = candidate.split(separator: ".").last {
+            return String(simpleName).localizedCaseInsensitiveContains(trimmedQuery)
+        }
+
+        return false
     }
 }
 

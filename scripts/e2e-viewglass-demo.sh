@@ -6,14 +6,14 @@ DEMO_DIR="$ROOT_DIR/Demo/ViewglassDemo"
 SIMULATOR_UDID="CE2FFAB6-957B-4647-B331-5E5DC61A54AF"
 APP_BUNDLE_ID="com.wzb.ViewglassDemo"
 SESSION_SPEC="${APP_BUNDLE_ID}@47164"
-DERIVED_DATA_DIR="/tmp/ViewglassDemoDerivedData"
+DERIVED_DATA_DIR="$(mktemp -d /tmp/ViewglassDemoDerivedData.XXXXXX)"
 APP_PATH="$DERIVED_DATA_DIR/Build/Products/Debug-iphonesimulator/ViewglassDemo.app"
 ARTIFACT_DIR="/tmp/viewglass-demo-e2e"
 LOCAL_SERVER_REPO="$(cd "$ROOT_DIR/.." && pwd)/ViewglassServer"
 E2E_PROJECT_SPEC="$DEMO_DIR/project.e2e.yml"
 
 mkdir -p "$ARTIFACT_DIR"
-trap 'rm -f "$E2E_PROJECT_SPEC"' EXIT
+trap 'rm -f "$E2E_PROJECT_SPEC"; rm -rf "$DERIVED_DATA_DIR"' EXIT
 
 run_viewglass() {
   local output=""
@@ -181,7 +181,7 @@ for devices in data['devices'].values():
 
 assert_alert_present() {
   local alert_json
-  alert_json="$(run_viewglass query UIAlertController --session "$SESSION_SPEC" --json)"
+  alert_json="$(run_viewglass query "controller:UIAlertController" --session "$SESSION_SPEC" --json)"
   local count
   count="$(json_query "$alert_json" 'len(data)')"
   if [[ "$count" -ne 1 ]]; then
@@ -193,7 +193,7 @@ assert_alert_present() {
 
 assert_alert_dismissed() {
   local alert_json
-  alert_json="$(run_viewglass query UIAlertController --session "$SESSION_SPEC" --json)"
+  alert_json="$(run_viewglass query "controller:UIAlertController" --session "$SESSION_SPEC" --json)"
   local count
   count="$(json_query "$alert_json" 'len(data)')"
   if [[ "$count" -ne 0 ]]; then
@@ -221,6 +221,19 @@ assert_locator_exists() {
   count="$(json_query "$locate_json" 'len(data["matches"])')"
   if [[ "$count" -lt 1 ]]; then
     echo "Expected locator $locator to resolve at least once" >&2
+    exit 1
+  fi
+}
+
+assert_query_count_at_least() {
+  local locator="$1"
+  local minimum="$2"
+  local query_json
+  query_json="$(run_viewglass query "$locator" --session "$SESSION_SPEC" --json)"
+  local count
+  count="$(json_query "$query_json" 'len(data)')"
+  if [[ "$count" -lt "$minimum" ]]; then
+    echo "Expected query $locator to return at least $minimum result(s), got $count" >&2
     exit 1
   fi
 }
@@ -394,6 +407,8 @@ main() {
   launch_demo
   tap_locator "#switch_tab_forms"
   assert_locator_exists "#primary_text_field"
+  assert_query_count_at_least "UITabBar" 1
+  assert_query_count_at_least "TabBar" 1
   tap_locator "#switch_tab_feed"
   assert_locator_exists "#long_feed_scroll"
   tap_locator "#switch_tab_home"
