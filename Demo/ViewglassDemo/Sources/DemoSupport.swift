@@ -34,6 +34,8 @@ enum DemoID {
     static let longPressCard = "long_press_card"
     static let gestureStatus = "gesture_status"
     static let selectionStatus = "selection_status"
+    static let tableSelectionTimeline = "table_selection_timeline"
+    static let collectionSelectionTimeline = "collection_selection_timeline"
     static let selectableTable = "selectable_table"
     static let selectableCollection = "selectable_collection"
     static let tableRowLabelPrefix = "table_row_label_"

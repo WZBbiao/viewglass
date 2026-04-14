@@ -398,10 +398,14 @@ main() {
   launch_demo
   tap_locator "#push_selectable_surfaces_screen"
   assert_locator_exists "#selection_status"
+  assert_locator_exists "#table_selection_timeline"
+  assert_locator_exists "#collection_selection_timeline"
   tap_locator "#table_row_label_1"
   assert_status_text "#selection_status" "Table selected: Profile"
+  assert_status_contains "#table_selection_timeline" "didSelect:Profile"
   tap_locator "#collection_tile_label_2"
   assert_status_text "#selection_status" "Collection selected: Sunset"
+  assert_status_contains "#collection_selection_timeline" "didSelect:Sunset"
   run_viewglass screenshot screen --session "$SESSION_SPEC" -o "$ARTIFACT_DIR/selectable-surfaces.png" --json >/dev/null
 
   launch_demo

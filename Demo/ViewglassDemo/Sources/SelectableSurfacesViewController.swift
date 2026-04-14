@@ -2,8 +2,12 @@ import UIKit
 
 final class SelectableSurfacesViewController: UIViewController {
     private let statusLabel = UILabel()
+    private let tableTimelineLabel = UILabel()
+    private let collectionTimelineLabel = UILabel()
     private let tableItems = ["Inbox", "Profile", "Settings"]
     private let collectionItems = ["Coral", "Indigo", "Sunset", "Mint"]
+    private var tableTimeline: [String] = []
+    private var collectionTimeline: [String] = []
 
     private lazy var tableView: UITableView = {
         let tableView = UITableView(frame: .zero, style: .insetGrouped)
@@ -52,6 +56,20 @@ final class SelectableSurfacesViewController: UIViewController {
         statusLabel.numberOfLines = 0
         statusLabel.accessibilityIdentifier = DemoID.selectionStatus
         hero.addArrangedSubview(statusLabel)
+
+        tableTimelineLabel.text = "Table timeline: idle"
+        tableTimelineLabel.font = UIFont.monospacedSystemFont(ofSize: 13, weight: .medium)
+        tableTimelineLabel.textColor = .secondaryLabel
+        tableTimelineLabel.numberOfLines = 0
+        tableTimelineLabel.accessibilityIdentifier = DemoID.tableSelectionTimeline
+        hero.addArrangedSubview(tableTimelineLabel)
+
+        collectionTimelineLabel.text = "Collection timeline: idle"
+        collectionTimelineLabel.font = UIFont.monospacedSystemFont(ofSize: 13, weight: .medium)
+        collectionTimelineLabel.textColor = .secondaryLabel
+        collectionTimelineLabel.numberOfLines = 0
+        collectionTimelineLabel.accessibilityIdentifier = DemoID.collectionSelectionTimeline
+        hero.addArrangedSubview(collectionTimelineLabel)
 
         let tableCard = makeSectionCard(
             title: "Table Rows",
@@ -105,7 +123,22 @@ extension SelectableSurfacesViewController: UITableViewDataSource, UITableViewDe
         return cell
     }
 
+    func tableView(_ tableView: UITableView, shouldHighlightRowAt indexPath: IndexPath) -> Bool {
+        recordTableEvent("shouldHighlight:\(tableItems[indexPath.row])")
+        return true
+    }
+
+    func tableView(_ tableView: UITableView, didHighlightRowAt indexPath: IndexPath) {
+        recordTableEvent("didHighlight:\(tableItems[indexPath.row])")
+    }
+
+    func tableView(_ tableView: UITableView, willSelectRowAt indexPath: IndexPath) -> IndexPath? {
+        recordTableEvent("willSelect:\(tableItems[indexPath.row])")
+        return indexPath
+    }
+
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
+        recordTableEvent("didSelect:\(tableItems[indexPath.row])")
         statusLabel.text = "Table selected: \(tableItems[indexPath.row])"
     }
 }
@@ -123,8 +156,35 @@ extension SelectableSurfacesViewController: UICollectionViewDataSource, UICollec
         return cell
     }
 
+    func collectionView(_ collectionView: UICollectionView, shouldHighlightItemAt indexPath: IndexPath) -> Bool {
+        recordCollectionEvent("shouldHighlight:\(collectionItems[indexPath.item])")
+        return true
+    }
+
+    func collectionView(_ collectionView: UICollectionView, didHighlightItemAt indexPath: IndexPath) {
+        recordCollectionEvent("didHighlight:\(collectionItems[indexPath.item])")
+    }
+
+    func collectionView(_ collectionView: UICollectionView, shouldSelectItemAt indexPath: IndexPath) -> Bool {
+        recordCollectionEvent("shouldSelect:\(collectionItems[indexPath.item])")
+        return true
+    }
+
     func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
+        recordCollectionEvent("didSelect:\(collectionItems[indexPath.item])")
         statusLabel.text = "Collection selected: \(collectionItems[indexPath.item])"
+    }
+}
+
+private extension SelectableSurfacesViewController {
+    func recordTableEvent(_ event: String) {
+        tableTimeline.append(event)
+        tableTimelineLabel.text = "Table timeline: " + tableTimeline.joined(separator: " -> ")
+    }
+
+    func recordCollectionEvent(_ event: String) {
+        collectionTimeline.append(event)
+        collectionTimelineLabel.text = "Collection timeline: " + collectionTimeline.joined(separator: " -> ")
     }
 }
 
