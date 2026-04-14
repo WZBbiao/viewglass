@@ -7,7 +7,7 @@ public final class LKQueryEngine: Sendable {
     /// Executes a query expression against a hierarchy snapshot.
     ///
     /// Supported expression syntax:
-    /// - `UILabel` — match by class name or hosting controller class using fuzzy contains (case-insensitive)
+    /// - `UILabel` / `label` — match by class name or hosting controller class using fuzzy contains (case-insensitive)
     /// - `UILabel*` — match by class prefix
     /// - `*Label` — match by class suffix
     /// - `*View*` — match by class name containing substring (case-insensitive)
@@ -214,8 +214,10 @@ public final class LKQueryEngine: Sendable {
             }
         }
 
-        // Plain class name (default fuzzy contains, case-insensitive) — also match hosting controller class
-        if expr.first?.isUpperCase == true || expr.first == "_" || expr.contains(".") {
+        // Bare token (default fuzzy contains, case-insensitive) — also match hosting controller class.
+        // This intentionally accepts lowercase inputs such as `tableview` or `tabbar`
+        // so AI/tooling does not need to guess UIKit capitalization rules.
+        if isBareFuzzyClassQuery(expr) {
             return {
                 self.matchesClass($0.className, query: expr) ||
                 ($0.hostViewControllerClassName.map { self.matchesClass($0, query: expr) } ?? false)
@@ -225,8 +227,7 @@ public final class LKQueryEngine: Sendable {
         throw LookinCoreError.querySyntaxError(
             expression: expr,
             reason: "Unrecognized expression '\(expr)'. " +
-                "Class names must start with an uppercase letter (e.g. UILabel). " +
-                "Supported atoms: UILabel, *Label, UI*, oid:N, tag:N, depth:N, " +
+                "Supported atoms: UILabel/label, *Label, UI*, oid:N, tag:N, depth:N, " +
                 "#accessibilityId, @\"label\", class:, controller:, parent:, ancestor:, " +
                 "contains:\"text\", text:\"substring\", .visible, .hidden, .interactive, " +
                 "AND, OR, NOT, (groups)"
@@ -288,10 +289,15 @@ public final class LKQueryEngine: Sendable {
 
         return false
     }
-}
 
-private extension Character {
-    var isUpperCase: Bool {
-        isUppercase
+    private func isBareFuzzyClassQuery(_ expr: String) -> Bool {
+        let trimmed = expr.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return false }
+        guard !trimmed.contains(" ") else { return false }
+        guard !trimmed.hasPrefix(".") else { return false }
+        guard !trimmed.hasPrefix("#") else { return false }
+        guard !trimmed.hasPrefix("@") else { return false }
+        guard !trimmed.hasPrefix("("), !trimmed.hasSuffix(")") else { return false }
+        return true
     }
 }

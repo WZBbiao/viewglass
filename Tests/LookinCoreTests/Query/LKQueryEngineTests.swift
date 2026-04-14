@@ -17,6 +17,12 @@ final class LKQueryEngineTests: XCTestCase {
         XCTAssertTrue(results.allSatisfy { $0.className.localizedCaseInsensitiveContains("Label") })
     }
 
+    func testQueryByLowercaseBareClassNameUsesFuzzyContains() throws {
+        let results = try engine.execute(expression: "label", on: snapshot)
+        XCTAssertEqual(results.count, 2)
+        XCTAssertTrue(results.allSatisfy { $0.className.localizedCaseInsensitiveContains("Label") })
+    }
+
     func testQueryByClassPrefix() throws {
         let results = try engine.execute(expression: "UI*", on: snapshot)
         XCTAssertEqual(results.count, snapshot.totalNodeCount) // All nodes are UI*
@@ -130,8 +136,9 @@ final class LKQueryEngineTests: XCTestCase {
         XCTAssertThrowsError(try engine.execute(expression: "", on: snapshot))
     }
 
-    func testQueryInvalidExpression() {
-        XCTAssertThrowsError(try engine.execute(expression: "invalid_lower", on: snapshot))
+    func testQueryUnknownLowercaseBareWordReturnsNoMatches() throws {
+        let results = try engine.execute(expression: "invalid_lower", on: snapshot)
+        XCTAssertEqual(results.count, 0)
     }
 
     func testQueryComplexExpression() throws {

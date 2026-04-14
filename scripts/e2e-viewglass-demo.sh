@@ -176,7 +176,7 @@ for devices in data['devices'].values():
 ")
   sleep 0.5
   xcrun simctl launch "$SIMULATOR_UDID" "$APP_BUNDLE_ID" >/dev/null
-  sleep 2
+  run_viewglass wait appears "#push_buttons_screen" --session "$SESSION_SPEC" --timeout 12 --interval-ms 500 --json >/dev/null
 }
 
 assert_alert_present() {
@@ -409,10 +409,16 @@ main() {
   assert_locator_exists "#primary_text_field"
   assert_query_count_at_least "UITabBar" 1
   assert_query_count_at_least "TabBar" 1
+  assert_query_count_at_least "tabbar" 1
   tap_locator "#switch_tab_feed"
   assert_locator_exists "#long_feed_scroll"
   tap_locator "#switch_tab_home"
   assert_locator_exists "#push_buttons_screen"
+
+  launch_demo
+  tap_locator "#push_selectable_surfaces_screen"
+  assert_query_count_at_least "tableview" 1
+  assert_query_count_at_least "collectionview" 1
 
   launch_demo
   tap_locator "#switch_tab_forms"
