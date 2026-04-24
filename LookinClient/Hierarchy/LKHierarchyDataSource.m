@@ -163,6 +163,14 @@
                 item.preferToBeCollapsed = YES;
             }];
         }
+
+        if (obj.representedForSystemWrapper) {
+            [obj enumerateSelfAndChildren:^(LookinDisplayItem *item) {
+                item.preferToBeCollapsed = YES;
+                item.noPreview = YES;
+                item.doNotFetchScreenshotReason = LookinDoNotFetchScreenshotForUserConfig;
+            }];
+        }
         
         if (obj.indentLevel == 0) {
             if ([obj itemIsKindOfClassesWithNames:classesWithNoPreview]) {

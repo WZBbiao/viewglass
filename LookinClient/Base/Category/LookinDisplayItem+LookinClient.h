@@ -23,6 +23,9 @@ NS_ASSUME_NONNULL_BEGIN
 /// className 以 “UI”、“CA” 等开头时认为是系统类，该属性将返回 YES
 @property(nonatomic, assign, readonly) BOOL representedForSystemClass;
 
+/// 私有 UIKit 包装节点，通常只承载 floating/tab bar 等系统视觉结构，不应作为主要交互目标。
+@property(nonatomic, assign, readonly) BOOL representedForSystemWrapper;
+
 - (BOOL)isUserCustom;
 
 /// 是否有能力显示图层框

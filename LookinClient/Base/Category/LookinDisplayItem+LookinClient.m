@@ -54,6 +54,22 @@
     return [self.title hasPrefix:@"UI"] || [self.title hasPrefix:@"CA"] || [self.title hasPrefix:@"_"];
 }
 
+- (BOOL)representedForSystemWrapper {
+    static NSSet<NSString *> *wrapperClassNames;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        wrapperClassNames = [NSSet setWithObjects:
+            @"_UIFloatingBarContainerView",
+            @"_UITabBarContainerWrapperView",
+            @"_UITabBarContainerView",
+            @"_UITabBarPlatterView",
+            @"_UITabBarVisualProvider_Floating",
+            @"_UIBarBackground",
+            nil];
+    });
+    return [self itemIsKindOfClassesWithNames:wrapperClassNames];
+}
+
 - (NSImage *)appropriateScreenshot {
     if (self.isExpandable && self.isExpanded) {
         return self.soloScreenshot;

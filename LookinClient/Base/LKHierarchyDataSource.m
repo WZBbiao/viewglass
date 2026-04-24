@@ -119,6 +119,12 @@
                 item.preferToBeCollapsed = YES;
             }];
         }
+
+        if (obj.representedForSystemWrapper) {
+            [obj enumerateSelfAndChildren:^(LookinDisplayItem *item) {
+                item.preferToBeCollapsed = YES;
+            }];
+        }
     }];
     
     // 设置展开和折叠
