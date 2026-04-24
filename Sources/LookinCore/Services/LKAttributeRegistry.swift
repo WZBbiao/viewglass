@@ -9,7 +9,8 @@ public enum LKAttributeRegistry {
         public let getter: String      // ObjC getter selector string
         public let attrType: LookinAttrType
         public let targetIsLayer: Bool // true = layer OID, false = view OID
-        public let requiredClass: String?
+        public let requiredClasses: [String]
+        public var requiredClass: String? { requiredClasses.first }
         /// When true, setAttribute will also send UIControlEventValueChanged
         /// after the property is written so app-layer callbacks fire.
         public let sendsValueChanged: Bool
@@ -20,13 +21,20 @@ public enum LKAttributeRegistry {
             _ attrType: LookinAttrType,
             layer: Bool = false,
             requiredClass: String? = nil,
+            requiredClasses: [String] = [],
             sendsValueChanged: Bool = false
         ) {
             self.setter = setter
             self.getter = getter
             self.attrType = attrType
             self.targetIsLayer = layer
-            self.requiredClass = requiredClass
+            if !requiredClasses.isEmpty {
+                self.requiredClasses = requiredClasses
+            } else if let requiredClass {
+                self.requiredClasses = [requiredClass]
+            } else {
+                self.requiredClasses = []
+            }
             self.sendsValueChanged = sendsValueChanged
         }
     }
@@ -62,8 +70,8 @@ public enum LKAttributeRegistry {
         "contentMode":           AttributeMapping("setContentMode:", "contentMode", .enumInt),
         "tag":                   AttributeMapping("setTag:", "tag", .long),
 
-        // UILabel
-        "text":                  AttributeMapping("setText:", "text", .nsString, requiredClass: "UILabel"),
+        // Text-bearing UIKit views
+        "text":                  AttributeMapping("setText:", "text", .nsString, requiredClasses: ["UILabel", "UITextField", "UITextView"]),
         "numberOfLines":         AttributeMapping("setNumberOfLines:", "numberOfLines", .long),
         "textAlignment":         AttributeMapping("setTextAlignment:", "textAlignment", .enumInt),
         "lineBreakMode":         AttributeMapping("setLineBreakMode:", "lineBreakMode", .enumInt),

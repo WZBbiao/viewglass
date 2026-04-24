@@ -55,21 +55,27 @@ public final class LKTargetResolver: Sendable {
         let actionOid = node.viewOid ?? node.hostViewControllerOid ?? node.primaryOid
         let captureOid = node.layerOid ?? node.viewOid ?? node.primaryOid
         let controllerOid = node.hostViewControllerOid
+        let viewOid = node.viewOid ?? node.primaryOid
+        let scrollOid = isScrollViewLike(node) ? viewOid : nil
+        let textInputOid = isTextInputLike(node) ? viewOid : nil
 
         return LKResolvedObjectTargets(
             inspectOid: inspectOid,
             actionOid: actionOid,
             captureOid: captureOid,
-            controllerOid: controllerOid
+            controllerOid: controllerOid,
+            scrollOid: scrollOid,
+            textInputOid: textInputOid
         )
     }
 
     private func capabilities(for node: LKNode) -> [String: LKCapability] {
-        let classChain = [node.className, node.hostViewControllerClassName].compactMap { $0 }
-        let isController = classChain.contains { $0.contains("Controller") } || node.hostViewControllerOid == node.primaryOid
-        let isScrollView = classChain.contains("UIScrollView")
+        let isControllerTarget = node.hostViewControllerOid == node.primaryOid ||
+            node.className == "UIViewController" ||
+            node.className.hasSuffix("ViewController")
+        let isScrollView = isScrollViewLike(node)
         let isActionableView = node.isUserInteractionEnabled || node.className == "UIControl" || node.hostViewControllerOid != nil
-        let isTextInput = classChain.contains("UITextField") || classChain.contains("UITextView")
+        let isTextInput = isTextInputLike(node)
 
         return [
             "inspect": LKCapability(supported: true),
@@ -80,7 +86,7 @@ public final class LKTargetResolver: Sendable {
             "scroll": isScrollView
                 ? LKCapability(supported: true)
                 : LKCapability(supported: false, reason: "target is not a UIScrollView subclass"),
-            "dismiss": isController || node.hostViewControllerOid != nil
+            "dismiss": isControllerTarget || node.hostViewControllerOid != nil
                 ? LKCapability(supported: true)
                 : LKCapability(supported: false, reason: "target is not a UIViewController subclass"),
             "input": isTextInput
@@ -88,6 +94,32 @@ public final class LKTargetResolver: Sendable {
                 : LKCapability(supported: false, reason: "target is not a UITextField or UITextView"),
             "invoke": LKCapability(supported: true)
         ]
+    }
+
+    private func isScrollViewLike(_ node: LKNode) -> Bool {
+        classNames(for: node).contains { className in
+            className == "UIScrollView" ||
+                className == "UITableView" ||
+                className == "UICollectionView" ||
+                className == "UITextView" ||
+                className == "WKWebView" ||
+                className.localizedCaseInsensitiveContains("ScrollView") ||
+                className.hasSuffix("TableView") ||
+                className.hasSuffix("CollectionView")
+        }
+    }
+
+    private func isTextInputLike(_ node: LKNode) -> Bool {
+        classNames(for: node).contains { className in
+            className == "UITextField" ||
+                className == "UITextView" ||
+                className.localizedCaseInsensitiveContains("TextField") ||
+                className.localizedCaseInsensitiveContains("TextView")
+        }
+    }
+
+    private func classNames(for node: LKNode) -> [String] {
+        [node.className, node.hostViewControllerClassName].compactMap { $0 }
     }
 
     private func matchesClass(_ candidate: String, query: String) -> Bool {

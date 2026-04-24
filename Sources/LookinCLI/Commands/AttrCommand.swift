@@ -116,8 +116,9 @@ struct AttrSet: AsyncParsableCommand {
                 sessionId: sessionId,
                 action: "attr-set"
             )
+            let targetOid = mutationTargetOid(for: resolved, attributeKey: key)
             let result = try await services.mutation.setAttribute(
-                nodeOid: resolved.targets.actionOid,
+                nodeOid: targetOid,
                 key: key,
                 value: value,
                 sessionId: sessionId

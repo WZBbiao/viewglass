@@ -32,8 +32,9 @@ struct InputCommand: AsyncParsableCommand {
                 action: "input",
                 capability: "input"
             )
+            let textInputOid = resolved.targets.textInputOid ?? resolved.targets.actionOid
             let result = try await services.mutation.inputText(
-                nodeOid: resolved.targets.actionOid,
+                nodeOid: textInputOid,
                 text: text,
                 sessionId: sessionId
             )

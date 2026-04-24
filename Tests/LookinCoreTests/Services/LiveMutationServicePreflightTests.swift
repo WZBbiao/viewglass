@@ -72,6 +72,19 @@ final class LiveMutationServicePreflightTests: XCTestCase {
         )
     }
 
+    func testEnsureClassChainAcceptsPrivateTextInputClassName() throws {
+        let service = LiveMutationService(sessionService: LiveSessionService(store: SessionStore(directory: tempDir())))
+
+        XCTAssertNoThrow(
+            try service.ensureClassChain(
+                ["_UIAlertControllerTextField", "UIView", "NSObject"],
+                contains: "UITextField",
+                action: "input",
+                targetClass: "_UIAlertControllerTextField"
+            )
+        )
+    }
+
     func testEnsureClassChainRejectsUnexpectedTargetClass() throws {
         let service = LiveMutationService(sessionService: LiveSessionService(store: SessionStore(directory: tempDir())))
 
@@ -94,6 +107,11 @@ final class LiveMutationServicePreflightTests: XCTestCase {
     func testAttributeRegistryRequiresScrollViewForContentOffset() {
         let mapping = LKAttributeRegistry.mapping(for: "contentOffset")
         XCTAssertEqual(mapping?.requiredClass, "UIScrollView")
+    }
+
+    func testAttributeRegistryAllowsTextOnTextInputs() {
+        let mapping = LKAttributeRegistry.mapping(for: "text")
+        XCTAssertEqual(mapping?.requiredClasses, ["UILabel", "UITextField", "UITextView"])
     }
 
     private func makeHierarchy(

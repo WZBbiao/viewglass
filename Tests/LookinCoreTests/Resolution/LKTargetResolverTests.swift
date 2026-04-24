@@ -41,6 +41,7 @@ final class LKTargetResolverTests: XCTestCase {
         let capabilities = try XCTUnwrap(resolved.selectedTarget?.capabilities)
         XCTAssertEqual(capabilities["scroll"]?.supported, false)
         XCTAssertEqual(capabilities["scroll"]?.reason, "target is not a UIScrollView subclass")
+        XCTAssertEqual(capabilities["dismiss"]?.supported, false)
     }
 
     func testResolvePrimaryOidMatchesHostViewControllerOid() throws {
@@ -75,6 +76,92 @@ final class LKTargetResolverTests: XCTestCase {
         XCTAssertEqual(resolved.selectedTarget?.targets.captureOid, 10)
         XCTAssertEqual(resolved.selectedTarget?.targets.controllerOid, 99)
         XCTAssertEqual(resolved.selectedTarget?.capabilities["dismiss"]?.supported, true)
+    }
+
+    func testCustomCollectionViewExposesDedicatedScrollTarget() throws {
+        let node = LKNode(
+            oid: 100,
+            primaryOid: 101,
+            oidType: .layer,
+            viewOid: 101,
+            layerOid: 100,
+            className: "TapBaseCollectionView",
+            hostViewControllerClassName: "FeedViewController"
+        )
+        let snapshot = LKHierarchySnapshot(
+            appInfo: LKAppDescriptor(
+                appName: "Demo",
+                bundleIdentifier: "com.example.demo",
+                appVersion: "1.0",
+                deviceName: "iPhone",
+                deviceType: .simulator,
+                port: 47164
+            ),
+            windows: [LKNodeTree(node: node)]
+        )
+
+        let resolved = try resolver.resolve(locator: .parse("oid:101"), in: snapshot)
+
+        XCTAssertEqual(resolved.selectedTarget?.targets.inspectOid, 100)
+        XCTAssertEqual(resolved.selectedTarget?.targets.actionOid, 101)
+        XCTAssertEqual(resolved.selectedTarget?.targets.scrollOid, 101)
+        XCTAssertEqual(resolved.selectedTarget?.capabilities["scroll"]?.supported, true)
+    }
+
+    func testPrivateTextFieldExposesDedicatedInputTarget() throws {
+        let node = LKNode(
+            oid: 200,
+            primaryOid: 201,
+            oidType: .layer,
+            viewOid: 201,
+            layerOid: 200,
+            className: "_UIAlertControllerTextField",
+            hostViewControllerClassName: "UIAlertController",
+            hostViewControllerOid: 299
+        )
+        let snapshot = LKHierarchySnapshot(
+            appInfo: LKAppDescriptor(
+                appName: "Demo",
+                bundleIdentifier: "com.example.demo",
+                appVersion: "1.0",
+                deviceName: "iPhone",
+                deviceType: .simulator,
+                port: 47164
+            ),
+            windows: [LKNodeTree(node: node)]
+        )
+
+        let resolved = try resolver.resolve(locator: .parse("oid:201"), in: snapshot)
+
+        XCTAssertEqual(resolved.selectedTarget?.targets.textInputOid, 201)
+        XCTAssertEqual(resolved.selectedTarget?.capabilities["input"]?.supported, true)
+    }
+
+    func testAlertActionViewIsNotReportedAsDismissableController() throws {
+        let node = LKNode(
+            oid: 300,
+            primaryOid: 300,
+            oidType: .view,
+            viewOid: 300,
+            className: "_UIAlertControllerActionView",
+            accessibilityLabel: "Ship"
+        )
+        let snapshot = LKHierarchySnapshot(
+            appInfo: LKAppDescriptor(
+                appName: "Demo",
+                bundleIdentifier: "com.example.demo",
+                appVersion: "1.0",
+                deviceName: "iPhone",
+                deviceType: .simulator,
+                port: 47164
+            ),
+            windows: [LKNodeTree(node: node)]
+        )
+
+        let resolved = try resolver.resolve(locator: .parse("@\"Ship\""), in: snapshot)
+
+        XCTAssertEqual(resolved.selectedTarget?.capabilities["tap"]?.supported, true)
+        XCTAssertEqual(resolved.selectedTarget?.capabilities["dismiss"]?.supported, false)
     }
 
     func testResolveControllerLocatorUsesFuzzyContains() throws {

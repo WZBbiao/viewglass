@@ -15,17 +15,23 @@ public struct LKResolvedObjectTargets: Codable, Equatable, Sendable {
     public let actionOid: UInt
     public let captureOid: UInt
     public let controllerOid: UInt?
+    public let scrollOid: UInt?
+    public let textInputOid: UInt?
 
     public init(
         inspectOid: UInt,
         actionOid: UInt,
         captureOid: UInt,
-        controllerOid: UInt?
+        controllerOid: UInt?,
+        scrollOid: UInt? = nil,
+        textInputOid: UInt? = nil
     ) {
         self.inspectOid = inspectOid
         self.actionOid = actionOid
         self.captureOid = captureOid
         self.controllerOid = controllerOid
+        self.scrollOid = scrollOid
+        self.textInputOid = textInputOid
     }
 }
 

@@ -49,10 +49,10 @@ public final class LiveMutationService: MutationServiceProtocol, @unchecked Send
                     isLayerProperty: mapping.targetIsLayer,
                     hierarchy: hierarchy
                 )
-                if let requiredClass = mapping.requiredClass {
+                if !mapping.requiredClasses.isEmpty {
                     try ensureClassChain(
                         target.classChain,
-                        contains: requiredClass,
+                        containsAny: mapping.requiredClasses,
                         action: "set-attribute:\(key)",
                         targetClass: target.className
                     )
@@ -152,7 +152,7 @@ public final class LiveMutationService: MutationServiceProtocol, @unchecked Send
         let target = try resolveTargetMetadata(nodeOid: nodeOid, isLayerProperty: false, hierarchy: hierarchy)
 
         let scrollableClasses = ["UIScrollView", "UITableView", "UICollectionView", "UITextView", "WKWebView"]
-        guard scrollableClasses.contains(where: { target.classChain.contains($0) || target.className == $0 }) else {
+        guard scrollableClasses.contains(where: { classChainMatches(target.classChain, requiredClass: $0, targetClass: target.className) }) else {
             throw LookinCoreError.actionFailed(
                 action: "swipe",
                 reason: "\(target.className)(oid:\(nodeOid)) is not a UIScrollView subclass. " +
@@ -437,8 +437,14 @@ public final class LiveMutationService: MutationServiceProtocol, @unchecked Send
                     isLayerProperty: false,
                     hierarchy: hierarchy
                 )
-                let supportedInputClasses = ["UITextField", "UITextView"]
-                guard supportedInputClasses.contains(where: { target.classChain.contains($0) || target.className == $0 }) else {
+                do {
+                    try ensureClassChain(
+                        target.classChain,
+                        containsAny: ["UITextField", "UITextView"],
+                        action: "input",
+                        targetClass: target.className
+                    )
+                } catch {
                     throw LookinCoreError.actionFailed(
                         action: "input",
                         reason: "\(target.className) is not a supported text input target. Use UITextField or UITextView."
@@ -512,12 +518,66 @@ public final class LiveMutationService: MutationServiceProtocol, @unchecked Send
         action: String,
         targetClass: String
     ) throws {
-        guard classChain.contains(requiredClass) || targetClass == requiredClass else {
+        try ensureClassChain(
+            classChain,
+            containsAny: [requiredClass],
+            action: action,
+            targetClass: targetClass
+        )
+    }
+
+    func ensureClassChain(
+        _ classChain: [String],
+        containsAny requiredClasses: [String],
+        action: String,
+        targetClass: String
+    ) throws {
+        guard requiredClasses.contains(where: { classChainMatches(classChain, requiredClass: $0, targetClass: targetClass) }) else {
+            let requirement = requiredClasses.count == 1
+                ? requiredClasses[0]
+                : requiredClasses.joined(separator: ", ")
             throw LookinCoreError.actionFailed(
                 action: action,
-                reason: "\(targetClass) is not a \(requiredClass) subclass"
+                reason: "\(targetClass) is not a \(requirement) subclass"
             )
         }
+    }
+
+    private func classChainMatches(_ classChain: [String], requiredClass: String, targetClass: String) -> Bool {
+        let names = Set(classChain + [targetClass])
+        if names.contains(requiredClass) {
+            return true
+        }
+
+        switch requiredClass {
+        case "UIScrollView":
+            return names.contains { isScrollViewClassName($0) }
+        case "UITableView":
+            return names.contains { $0 == "UITableView" || $0.hasSuffix("TableView") }
+        case "UICollectionView":
+            return names.contains { $0 == "UICollectionView" || $0.hasSuffix("CollectionView") }
+        case "UITextField":
+            return names.contains { $0.localizedCaseInsensitiveContains("TextField") }
+        case "UITextView":
+            return names.contains { $0.localizedCaseInsensitiveContains("TextView") }
+        case "UILabel":
+            return names.contains { $0.localizedCaseInsensitiveContains("Label") }
+        case "UIControl":
+            return names.contains { $0.localizedCaseInsensitiveContains("Control") }
+        default:
+            return false
+        }
+    }
+
+    private func isScrollViewClassName(_ className: String) -> Bool {
+        className == "UIScrollView" ||
+            className == "UITableView" ||
+            className == "UICollectionView" ||
+            className == "UITextView" ||
+            className == "WKWebView" ||
+            className.localizedCaseInsensitiveContains("ScrollView") ||
+            className.hasSuffix("TableView") ||
+            className.hasSuffix("CollectionView")
     }
 
     private func ensureSelectorExists(

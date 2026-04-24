@@ -202,6 +202,32 @@ assert_alert_dismissed() {
   fi
 }
 
+alert_action_oid() {
+  local title="$1"
+  local query_json
+  query_json="$(run_viewglass query "contains:\"$title\" AND *Action*" --session "$SESSION_SPEC" --json)"
+  JSON_INPUT="$query_json" python3 - "$title" <<'PY'
+import json
+import os
+import sys
+
+title = sys.argv[1]
+nodes = json.loads(os.environ["JSON_INPUT"])
+preferred = [
+    node for node in nodes
+    if node.get("accessibilityLabel") == title and node.get("className") == "_UIAlertControllerActionView"
+]
+fallback = [
+    node for node in nodes
+    if node.get("accessibilityLabel") == title and "Action" in node.get("className", "")
+]
+matches = preferred or fallback
+if not matches:
+    raise SystemExit(f"Expected an alert action view titled {title!r}")
+print(matches[0]["oid"])
+PY
+}
+
 assert_forms_surface() {
   local fields_json
   fields_json="$(run_viewglass query UITextField --session "$SESSION_SPEC" --json)"
@@ -287,7 +313,7 @@ assert_status_text() {
   local expected="$2"
   local attr_json actual
   attr_json="$(run_viewglass attr get "$locator" --session "$SESSION_SPEC" --json)"
-  actual="$(json_attr_string "$attr_json" "text,displayText,lb_t_t,la_t,tf_t_t,te_t_t")"
+  actual="$(json_attr_string "$attr_json" "text,displayText,lb_t_t,la_t,tf_t_t,te_t_t,textField.text,textView.text")"
   if [[ "$actual" != "$expected" ]]; then
     echo "Expected $locator text '$expected', got '$actual'" >&2
     exit 1
@@ -299,18 +325,18 @@ assert_status_contains() {
   local expected_fragment="$2"
   local attr_json actual
   attr_json="$(run_viewglass attr get "$locator" --session "$SESSION_SPEC" --json)"
-  actual="$(json_attr_string "$attr_json" "text,displayText,lb_t_t,la_t,tf_t_t,te_t_t")"
+  actual="$(json_attr_string "$attr_json" "text,displayText,lb_t_t,la_t,tf_t_t,te_t_t,textField.text,textView.text")"
   if [[ "$actual" != *"$expected_fragment"* ]]; then
     echo "Expected $locator text to contain '$expected_fragment', got '$actual'" >&2
     exit 1
   fi
 }
 
-scroll_feed_and_verify() {
-  local before_json after_json before_offset after_offset
-  before_json="$(run_viewglass attr get "#long_feed_scroll" --session "$SESSION_SPEC" --json)"
-  # Support new flat format (contentOffset key) and old nested format (sv_o_o key).
-  before_offset="$(JSON_INPUT="$before_json" python3 <<'PY'
+read_content_offset() {
+  local locator="$1"
+  local attr_json
+  attr_json="$(run_viewglass attr get "$locator" --session "$SESSION_SPEC" --json)"
+  JSON_INPUT="$attr_json" python3 <<'PY'
 import json, os
 data = json.loads(os.environ["JSON_INPUT"])
 attrs = data.get("attributes", {})
@@ -320,7 +346,11 @@ else:
     val = next((a["value"]["string"]["_0"] for g in attrs for a in g.get("attributes", []) if a.get("key") == "sv_o_o"), "")
     print(val)
 PY
-)"
+}
+
+scroll_feed_and_verify() {
+  local before_offset after_to_offset after_by_offset
+  before_offset="$(read_content_offset "#long_feed_scroll")"
   if [[ "$before_offset" != "NSPoint: {0, 0}" ]]; then
     echo "Unexpected initial contentOffset: $before_offset" >&2
     exit 1
@@ -328,20 +358,17 @@ PY
 
   run_viewglass scroll "#long_feed_scroll" --to 0,320 --session "$SESSION_SPEC" --json >/dev/null
 
-  after_json="$(run_viewglass attr get "#long_feed_scroll" --session "$SESSION_SPEC" --json)"
-  after_offset="$(JSON_INPUT="$after_json" python3 <<'PY'
-import json, os
-data = json.loads(os.environ["JSON_INPUT"])
-attrs = data.get("attributes", {})
-if isinstance(attrs, dict):
-    print(attrs.get("contentOffset", ""))
-else:
-    val = next((a["value"]["string"]["_0"] for g in attrs for a in g.get("attributes", []) if a.get("key") == "sv_o_o"), "")
-    print(val)
-PY
-)"
-  if [[ "$after_offset" != "NSPoint: {0, 320}" ]]; then
-    echo "Expected contentOffset to become {0, 320}, got $after_offset" >&2
+  after_to_offset="$(read_content_offset "#long_feed_scroll")"
+  if [[ "$after_to_offset" != "NSPoint: {0, 320}" ]]; then
+    echo "Expected contentOffset to become {0, 320}, got $after_to_offset" >&2
+    exit 1
+  fi
+
+  run_viewglass scroll "#long_feed_scroll" --by 0,80 --session "$SESSION_SPEC" --json >/dev/null
+
+  after_by_offset="$(read_content_offset "#long_feed_scroll")"
+  if [[ "$after_by_offset" != "NSPoint: {0, 400}" ]]; then
+    echo "Expected contentOffset to become {0, 400} after --by scroll, got $after_by_offset" >&2
     exit 1
   fi
 }
@@ -362,6 +389,14 @@ main() {
   local alert_controller_oid
   alert_controller_oid="$(assert_alert_present)"
   run_viewglass dismiss "$alert_controller_oid" --session "$SESSION_SPEC" --json >/dev/null
+  sleep 1
+  assert_alert_dismissed
+  tap_locator "#open_alert"
+  sleep 1
+  assert_alert_present >/dev/null
+  local ship_action_oid
+  ship_action_oid="$(alert_action_oid "Ship")"
+  run_viewglass tap "$ship_action_oid" --session "$SESSION_SPEC" --json >/dev/null
   sleep 1
   assert_alert_dismissed
 
@@ -434,6 +469,10 @@ main() {
   assert_status_contains "#forms_status" "Email: agent@example.com"
   assert_status_contains "#forms_status" "Password: 8 chars"
   assert_status_contains "#forms_status" "Notes: 30 chars"
+  run_viewglass attr set "#primary_text_field" text "attrset@example.com" --session "$SESSION_SPEC" --json >/dev/null
+  assert_status_text "#primary_text_field" "attrset@example.com"
+  run_viewglass attr set "#notes_text_view" text "Attr set notes body." --session "$SESSION_SPEC" --json >/dev/null
+  assert_status_text "#notes_text_view" "Attr set notes body."
   run_viewglass screenshot screen --session "$SESSION_SPEC" -o "$ARTIFACT_DIR/forms-after-input.png" --json >/dev/null
 
   launch_demo

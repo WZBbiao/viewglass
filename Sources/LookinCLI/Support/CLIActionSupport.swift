@@ -19,16 +19,45 @@ func parseOid(_ input: String) throws -> UInt {
 }
 
 func parseCGPoint(argument: String, label: String) throws -> CGPoint {
+    let numbers = parseNumericComponents(argument)
+    guard numbers.count == 2 else {
+        throw LookinCoreError.actionFailed(action: label, reason: "Expected point in the form 'x,y', got '\(argument)'.")
+    }
+    return CGPoint(x: numbers[0], y: numbers[1])
+}
+
+func parseCGSize(argument: String, label: String) throws -> CGSize {
+    let numbers = parseNumericComponents(argument)
+    guard numbers.count == 2 else {
+        throw LookinCoreError.actionFailed(action: label, reason: "Expected size in the form 'width,height', got '\(argument)'.")
+    }
+    return CGSize(width: numbers[0], height: numbers[1])
+}
+
+func parseCGRect(argument: String, label: String) throws -> CGRect {
+    let numbers = parseNumericComponents(argument)
+    guard numbers.count == 4 else {
+        throw LookinCoreError.actionFailed(action: label, reason: "Expected rect in the form 'x,y,width,height', got '\(argument)'.")
+    }
+    return CGRect(x: numbers[0], y: numbers[1], width: numbers[2], height: numbers[3])
+}
+
+func parseScrollInsets(argument: String, label: String) throws -> ScrollInsets {
+    let numbers = parseNumericComponents(argument)
+    guard numbers.count == 4 else {
+        throw LookinCoreError.actionFailed(action: label, reason: "Expected insets in the form 'top,left,bottom,right', got '\(argument)'.")
+    }
+    return ScrollInsets(top: numbers[0], left: numbers[1], bottom: numbers[2], right: numbers[3])
+}
+
+private func parseNumericComponents(_ argument: String) -> [Double] {
     let numbers = argument
         .components(separatedBy: CharacterSet(charactersIn: "{}, "))
         .compactMap { component -> Double? in
             let trimmed = component.trimmingCharacters(in: .whitespacesAndNewlines)
             return trimmed.isEmpty ? nil : Double(trimmed)
         }
-    guard numbers.count == 2 else {
-        throw LookinCoreError.actionFailed(action: label, reason: "Expected point in the form 'x,y', got '\(argument)'.")
-    }
-    return CGPoint(x: numbers[0], y: numbers[1])
+    return numbers
 }
 
 func formatCGPoint(_ point: CGPoint) -> String {
@@ -99,6 +128,38 @@ func resolveActionTarget(
         )
     }
     return try ensureCapability(selected, action: action, capability: capability)
+}
+
+func mutationTargetOid(for resolved: LKResolvedMatch, attributeKey key: String) -> UInt {
+    guard let mapping = LKAttributeRegistry.mapping(for: key) else {
+        return resolved.targets.actionOid
+    }
+
+    if mapping.targetIsLayer {
+        return resolved.targets.captureOid
+    }
+
+    if mapping.requiredClasses.contains(where: isScrollAttributeRequirement) {
+        return resolved.targets.scrollOid ?? resolved.targets.actionOid
+    }
+
+    if mapping.requiredClasses.contains(where: isTextInputAttributeRequirement) {
+        return resolved.targets.textInputOid ?? resolved.targets.actionOid
+    }
+
+    return resolved.targets.actionOid
+}
+
+private func isScrollAttributeRequirement(_ className: String) -> Bool {
+    className == "UIScrollView" ||
+        className == "UITableView" ||
+        className == "UICollectionView" ||
+        className == "UITextView" ||
+        className == "WKWebView"
+}
+
+private func isTextInputAttributeRequirement(_ className: String) -> Bool {
+    className == "UITextField" || className == "UITextView"
 }
 
 private func ensureCapability(
