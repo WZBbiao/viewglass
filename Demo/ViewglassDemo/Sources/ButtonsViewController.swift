@@ -1,6 +1,8 @@
 import UIKit
 
 final class ButtonsViewController: UIViewController {
+    private static var emptyOverlayWindow: UIWindow?
+
     override func viewDidLoad() {
         super.viewDidLoad()
         title = "Buttons & Alerts"
@@ -33,7 +35,11 @@ final class ButtonsViewController: UIViewController {
         fullScreenButton.accessibilityIdentifier = DemoID.openFullScreen
         fullScreenButton.addTarget(self, action: #selector(showFullScreen), for: .touchUpInside)
 
-        [alertButton, actionSheetButton, pageSheetButton, fullScreenButton].forEach(hero.addArrangedSubview(_:))
+        let emptyOverlayButton = makeDemoButton(title: "Show Empty Overlay Window", filled: false)
+        emptyOverlayButton.accessibilityIdentifier = DemoID.showEmptyOverlayWindow
+        emptyOverlayButton.addTarget(self, action: #selector(showEmptyOverlayWindow), for: .touchUpInside)
+
+        [alertButton, actionSheetButton, pageSheetButton, fullScreenButton, emptyOverlayButton].forEach(hero.addArrangedSubview(_:))
 
         let info = makeSectionCard(
             title: "Visual Regression Hint",
@@ -92,5 +98,23 @@ final class ButtonsViewController: UIViewController {
         let modal = ModalCardViewController(titleText: "Full Screen", bodyText: "This presentation covers a second controller stack.")
         modal.modalPresentationStyle = .fullScreen
         present(modal, animated: true)
+    }
+
+    @objc private func showEmptyOverlayWindow() {
+        let frame = view.window?.windowScene?.coordinateSpace.bounds ?? UIScreen.main.bounds
+        let overlay = UIWindow(frame: frame)
+        overlay.windowScene = view.window?.windowScene
+        overlay.windowLevel = UIWindow.Level(UIWindow.Level.normal.rawValue + 1)
+        overlay.backgroundColor = .black
+        overlay.isUserInteractionEnabled = false
+        overlay.isHidden = false
+        Self.emptyOverlayWindow = overlay
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3) { [weak overlay] in
+            overlay?.isHidden = true
+            if Self.emptyOverlayWindow === overlay {
+                Self.emptyOverlayWindow = nil
+            }
+        }
     }
 }

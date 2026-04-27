@@ -264,6 +264,49 @@ assert_query_count_at_least() {
   fi
 }
 
+assert_screenshot_has_visible_content() {
+  local image_path="$1"
+  local bmp_path="${image_path}.bmp"
+  /usr/bin/sips -s format bmp "$image_path" --out "$bmp_path" >/dev/null
+  python3 - "$bmp_path" <<'PY'
+import struct
+import sys
+
+path = sys.argv[1]
+data = open(path, "rb").read()
+if data[:2] != b"BM":
+    raise SystemExit(f"Expected BMP data from {path}")
+
+offset = struct.unpack_from("<I", data, 10)[0]
+width = struct.unpack_from("<i", data, 18)[0]
+height = struct.unpack_from("<i", data, 22)[0]
+bpp = struct.unpack_from("<H", data, 28)[0]
+if width <= 0 or height == 0 or bpp not in (24, 32):
+    raise SystemExit(f"Unsupported BMP shape: {width}x{height} bpp={bpp}")
+
+abs_height = abs(height)
+bytes_per_pixel = bpp // 8
+row_size = ((width * bpp + 31) // 32) * 4
+step = max(1, min(width, abs_height) // 80)
+sampled = 0
+non_black = 0
+for y in range(0, abs_height, step):
+    row_y = abs_height - 1 - y if height > 0 else y
+    row = offset + row_y * row_size
+    for x in range(0, width, step):
+        pixel = row + x * bytes_per_pixel
+        b, g, r = data[pixel], data[pixel + 1], data[pixel + 2]
+        sampled += 1
+        if max(r, g, b) > 35 and (r + g + b) > 80:
+            non_black += 1
+
+ratio = non_black / sampled if sampled else 0
+if ratio < 0.03:
+    raise SystemExit(f"Screenshot is mostly black/empty: non-black sample ratio {ratio:.4f}")
+PY
+  rm -f "$bmp_path"
+}
+
 assert_full_screen_screenshot() {
   local output_path="$1"
   local screenshot_json width height
@@ -275,6 +318,7 @@ assert_full_screen_screenshot() {
     echo "$screenshot_json" >&2
     exit 1
   fi
+  assert_screenshot_has_visible_content "$output_path"
 }
 
 tap_locator() {
@@ -396,6 +440,9 @@ main() {
   tap_locator "#push_buttons_screen"
   sleep 1
   assert_full_screen_screenshot "$ARTIFACT_DIR/buttons-page.png"
+  tap_locator "#show_empty_overlay_window"
+  sleep 0.2
+  assert_full_screen_screenshot "$ARTIFACT_DIR/buttons-empty-overlay.png"
   tap_locator "#open_alert"
   sleep 1
   run_viewglass screenshot screen --session "$SESSION_SPEC" -o "$ARTIFACT_DIR/alert.png" --json >/dev/null

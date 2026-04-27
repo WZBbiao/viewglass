@@ -18,6 +18,7 @@ enum DemoID {
     static let openActionSheet = "open_action_sheet"
     static let openPageSheet = "open_page_sheet"
     static let openFullScreen = "open_full_screen"
+    static let showEmptyOverlayWindow = "show_empty_overlay_window"
     static let dismissModal = "dismiss_modal"
     static let primaryTextField = "primary_text_field"
     static let secureTextField = "secure_text_field"
