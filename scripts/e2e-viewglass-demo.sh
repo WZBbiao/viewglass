@@ -175,7 +175,7 @@ for devices in data['devices'].values():
             print(d['udid'])
 ")
   sleep 0.5
-  xcrun simctl launch "$SIMULATOR_UDID" "$APP_BUNDLE_ID" >/dev/null
+  SIMCTL_CHILD_VIEWGLASS_DEMO_FLOATING_KEY_WINDOW=1 xcrun simctl launch "$SIMULATOR_UDID" "$APP_BUNDLE_ID" >/dev/null
   run_viewglass wait appears "#push_buttons_screen" --session "$SESSION_SPEC" --timeout 12 --interval-ms 500 --json >/dev/null
 }
 
@@ -260,6 +260,19 @@ assert_query_count_at_least() {
   count="$(json_query "$query_json" 'len(data)')"
   if [[ "$count" -lt "$minimum" ]]; then
     echo "Expected query $locator to return at least $minimum result(s), got $count" >&2
+    exit 1
+  fi
+}
+
+assert_full_screen_screenshot() {
+  local output_path="$1"
+  local screenshot_json width height
+  screenshot_json="$(run_viewglass screenshot screen --session "$SESSION_SPEC" -o "$output_path" --json)"
+  width="$(json_query "$screenshot_json" 'data["width"]')"
+  height="$(json_query "$screenshot_json" 'data["height"]')"
+  if [[ "$width" -lt 1000 || "$height" -lt 2000 ]]; then
+    echo "Expected full-screen screenshot to be at least 1000x2000 px, got ${width}x${height}" >&2
+    echo "$screenshot_json" >&2
     exit 1
   fi
 }
@@ -382,7 +395,7 @@ main() {
   launch_demo
   tap_locator "#push_buttons_screen"
   sleep 1
-  run_viewglass screenshot screen --session "$SESSION_SPEC" -o "$ARTIFACT_DIR/buttons-page.png" --json >/dev/null
+  assert_full_screen_screenshot "$ARTIFACT_DIR/buttons-page.png"
   tap_locator "#open_alert"
   sleep 1
   run_viewglass screenshot screen --session "$SESSION_SPEC" -o "$ARTIFACT_DIR/alert.png" --json >/dev/null
