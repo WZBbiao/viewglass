@@ -50,6 +50,25 @@ final class GesturesViewController: UIViewController {
         ])
         card.addArrangedSubview(longPressCard)
 
+        let coordinateWrapper = UIView()
+        coordinateWrapper.backgroundColor = UIColor(red: 0.91, green: 0.96, blue: 0.89, alpha: 1)
+        coordinateWrapper.layer.cornerRadius = 20
+        coordinateWrapper.layer.cornerCurve = .continuous
+        coordinateWrapper.heightAnchor.constraint(equalToConstant: 120).isActive = true
+        coordinateWrapper.accessibilityIdentifier = DemoID.coordinateFallbackWrapper
+
+        let coordinateButton = makeDemoButton(title: "Coordinate fallback target", filled: false)
+        coordinateButton.translatesAutoresizingMaskIntoConstraints = false
+        coordinateButton.addTarget(self, action: #selector(handleCoordinateFallback), for: .touchUpInside)
+        coordinateWrapper.addSubview(coordinateButton)
+        NSLayoutConstraint.activate([
+            coordinateButton.centerXAnchor.constraint(equalTo: coordinateWrapper.centerXAnchor),
+            coordinateButton.centerYAnchor.constraint(equalTo: coordinateWrapper.centerYAnchor),
+            coordinateButton.leadingAnchor.constraint(greaterThanOrEqualTo: coordinateWrapper.leadingAnchor, constant: 20),
+            coordinateButton.trailingAnchor.constraint(lessThanOrEqualTo: coordinateWrapper.trailingAnchor, constant: -20)
+        ])
+        card.addArrangedSubview(coordinateWrapper)
+
         statusLabel.text = "No gesture triggered yet"
         statusLabel.font = UIFont.systemFont(ofSize: 16, weight: .medium)
         statusLabel.numberOfLines = 0
@@ -68,5 +87,9 @@ final class GesturesViewController: UIViewController {
     @objc private func handleLongPress(_ recognizer: UILongPressGestureRecognizer) {
         guard recognizer.state == .began else { return }
         statusLabel.text = "Long press fired"
+    }
+
+    @objc private func handleCoordinateFallback() {
+        statusLabel.text = "Coordinate fallback fired"
     }
 }

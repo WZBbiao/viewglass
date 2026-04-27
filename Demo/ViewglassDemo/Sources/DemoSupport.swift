@@ -32,6 +32,7 @@ enum DemoID {
     static let feedCardPrefix = "feed_card_"
     static let tappableLabel = "tappable_label"
     static let longPressCard = "long_press_card"
+    static let coordinateFallbackWrapper = "coordinate_fallback_wrapper"
     static let gestureStatus = "gesture_status"
     static let selectionStatus = "selection_status"
     static let tableSelectionTimeline = "table_selection_timeline"

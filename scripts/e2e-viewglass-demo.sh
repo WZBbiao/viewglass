@@ -428,6 +428,15 @@ main() {
   assert_status_text "#gesture_status" "Tap gesture fired"
   long_press_locator "#long_press_card"
   assert_status_text "#gesture_status" "Long press fired"
+  local coordinate_tap_json coordinate_strategy
+  coordinate_tap_json="$(run_viewglass tap "#coordinate_fallback_wrapper" --session "$SESSION_SPEC" --json)"
+  coordinate_strategy="$(json_query "$coordinate_tap_json" 'data["strategyUsed"]')"
+  if [[ "$coordinate_strategy" != "coordinateSemantic" ]]; then
+    echo "Expected coordinate fallback strategy, got '$coordinate_strategy'" >&2
+    exit 1
+  fi
+  sleep 1
+  assert_status_text "#gesture_status" "Coordinate fallback fired"
   run_viewglass screenshot screen --session "$SESSION_SPEC" -o "$ARTIFACT_DIR/gestures.png" --json >/dev/null
 
   launch_demo
