@@ -281,6 +281,33 @@ public final class LKProtocolClient: @unchecked Sendable {
         return nil
     }
 
+    public func triggerCoordinateSemanticTap(x: Double, y: Double, sourceOid: UInt?) async throws -> LKCoordinateSemanticTapResponse {
+        let requestData = NSMutableDictionary()
+        requestData["x"] = NSNumber(value: x)
+        requestData["y"] = NSNumber(value: y)
+        if let sourceOid {
+            requestData["sourceOid"] = NSNumber(value: sourceOid)
+        }
+
+        let response = try await sendRequest(type: LookinRequestTypeCoordinateSemanticTap, data: requestData)
+        guard let dict = response.data as? NSDictionary else {
+            if let detail = response.data as? NSString {
+                return LKCoordinateSemanticTapResponse(detail: detail as String, strategy: "coordinateSemantic", x: x, y: y)
+            }
+            return LKCoordinateSemanticTapResponse(strategy: "coordinateSemantic", x: x, y: y)
+        }
+
+        let hitOid = (dict["hitOid"] as? NSNumber).map { UInt($0.uintValue) }
+        return LKCoordinateSemanticTapResponse(
+            detail: dict["detail"] as? String,
+            strategy: dict["strategy"] as? String,
+            x: (dict["x"] as? NSNumber)?.doubleValue,
+            y: (dict["y"] as? NSNumber)?.doubleValue,
+            hitOid: hitOid,
+            hitClass: dict["hitClass"] as? String
+        )
+    }
+
     public func triggerSemanticLongPress(oid: UInt) async throws -> String? {
         let requestData: NSDictionary = [
             "oid": NSNumber(value: oid)

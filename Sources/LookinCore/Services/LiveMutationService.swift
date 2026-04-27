@@ -11,6 +11,12 @@ public final class LiveMutationService: MutationServiceProtocol, @unchecked Send
         let classChain: [String]
     }
 
+    struct CoordinateTapTarget {
+        let metadata: TargetMetadata
+        let frameToRoot: CGRect
+        let point: CGPoint
+    }
+
     private let sessionService: LiveSessionService
 
     public init(sessionService: LiveSessionService) {
@@ -318,16 +324,51 @@ public final class LiveMutationService: MutationServiceProtocol, @unchecked Send
                     hierarchy: hierarchy
                 )
 
-                let detail = try await client.triggerSemanticTap(oid: target.objectOid)
+                do {
+                    let detail = try await client.triggerSemanticTap(oid: target.objectOid)
 
-                return LKActionResult(
-                    action: "tap",
-                    nodeOid: nodeOid,
-                    targetClass: target.className,
-                    mode: .semantic,
-                    success: true,
-                    detail: detail ?? "Triggered semantic tap"
-                )
+                    return LKActionResult(
+                        action: "tap",
+                        nodeOid: nodeOid,
+                        targetClass: target.className,
+                        mode: .semantic,
+                        success: true,
+                        detail: detail ?? "Triggered semantic tap",
+                        strategyUsed: "semantic"
+                    )
+                } catch {
+                    guard let fallbackReason = coordinateSemanticFallbackReason(for: error) else {
+                        throw error
+                    }
+
+                    let coordinateTarget = try resolveCoordinateTapTarget(
+                        nodeOid: target.nodeOid,
+                        isLayerProperty: false,
+                        hierarchy: hierarchy
+                    )
+                    let response = try await client.triggerCoordinateSemanticTap(
+                        x: Double(coordinateTarget.point.x),
+                        y: Double(coordinateTarget.point.y),
+                        sourceOid: target.objectOid
+                    )
+                    let pointDescription = formatPoint(coordinateTarget.point)
+                    let detail = "Fallback coordinateSemantic tap at \(pointDescription): \(response.detail ?? "Triggered coordinate semantic tap")"
+
+                    return LKActionResult(
+                        action: "tap",
+                        nodeOid: nodeOid,
+                        targetClass: response.hitClass ?? target.className,
+                        mode: .semantic,
+                        success: true,
+                        detail: detail,
+                        strategyUsed: response.strategy ?? "coordinateSemantic",
+                        fallbackReason: fallbackReason,
+                        pointX: Double(coordinateTarget.point.x),
+                        pointY: Double(coordinateTarget.point.y),
+                        hitOid: response.hitOid,
+                        hitClass: response.hitClass
+                    )
+                }
             } catch {
                 lastError = error
                 guard attempt == 0, shouldRetry(after: error) else {
@@ -512,6 +553,44 @@ public final class LiveMutationService: MutationServiceProtocol, @unchecked Send
         )
     }
 
+    func resolveCoordinateTapTarget(
+        nodeOid: UInt,
+        isLayerProperty: Bool,
+        hierarchy: LookinHierarchyInfo
+    ) throws -> CoordinateTapTarget {
+        guard let items = hierarchy.displayItems,
+              let target = findCoordinateTapTarget(oid: nodeOid, isLayerProperty: isLayerProperty, in: items) else {
+            throw LookinCoreError.nodeNotFound(oid: nodeOid)
+        }
+
+        guard target.frameToRoot.width > 0, target.frameToRoot.height > 0 else {
+            throw LookinCoreError.actionFailed(
+                action: "tap",
+                reason: "\(target.metadata.className)(oid:\(nodeOid)) has an invalid frame for coordinate fallback"
+            )
+        }
+
+        let screenWidth = hierarchy.appInfo?.screenWidth ?? 0
+        let screenHeight = hierarchy.appInfo?.screenHeight ?? 0
+        let tappableFrame: CGRect
+        if screenWidth > 0, screenHeight > 0 {
+            let screenRect = CGRect(x: 0, y: 0, width: CGFloat(screenWidth), height: CGFloat(screenHeight))
+            tappableFrame = target.frameToRoot.intersection(screenRect)
+        } else {
+            tappableFrame = target.frameToRoot
+        }
+
+        guard !tappableFrame.isNull, !tappableFrame.isEmpty, tappableFrame.width > 0, tappableFrame.height > 0 else {
+            throw LookinCoreError.actionFailed(
+                action: "tap",
+                reason: "\(target.metadata.className)(oid:\(nodeOid)) is outside the visible screen for coordinate fallback"
+            )
+        }
+
+        let point = CGPoint(x: tappableFrame.midX, y: tappableFrame.midY)
+        return CoordinateTapTarget(metadata: target.metadata, frameToRoot: target.frameToRoot, point: point)
+    }
+
     func ensureClassChain(
         _ classChain: [String],
         contains requiredClass: String,
@@ -608,6 +687,93 @@ public final class LiveMutationService: MutationServiceProtocol, @unchecked Send
         default:
             return false
         }
+    }
+
+    private func coordinateSemanticFallbackReason(for error: Error) -> String? {
+        guard case let LookinCoreError.protocolError(reason) = error else {
+            return nil
+        }
+        if reason.localizedCaseInsensitiveContains("didn't find a tappable") ||
+            reason.localizedCaseInsensitiveContains("did not find a tappable") {
+            return reason
+        }
+        return nil
+    }
+
+    private func formatPoint(_ point: CGPoint) -> String {
+        "{\(formatNumber(Double(point.x))),\(formatNumber(Double(point.y)))}"
+    }
+
+    private func formatNumber(_ value: Double) -> String {
+        if value.rounded(.towardZero) == value {
+            return String(Int(value))
+        }
+        return String(format: "%.2f", value)
+    }
+
+    private func frameToRoot(
+        for item: LookinDisplayItem,
+        parentFrameToRoot: CGRect?,
+        parentBounds: CGRect?
+    ) -> CGRect {
+        guard let parentFrameToRoot, let parentBounds else {
+            return item.frame
+        }
+        return CGRect(
+            x: item.frame.origin.x - parentBounds.origin.x + parentFrameToRoot.origin.x,
+            y: item.frame.origin.y - parentBounds.origin.y + parentFrameToRoot.origin.y,
+            width: item.frame.size.width,
+            height: item.frame.size.height
+        )
+    }
+
+    private func findCoordinateTapTarget(
+        oid: UInt,
+        isLayerProperty: Bool,
+        in items: [LookinDisplayItem],
+        parentFrameToRoot: CGRect? = nil,
+        parentBounds: CGRect? = nil
+    ) -> (metadata: TargetMetadata, frameToRoot: CGRect)? {
+        for item in items {
+            let currentFrameToRoot = frameToRoot(for: item, parentFrameToRoot: parentFrameToRoot, parentBounds: parentBounds)
+            let layerMatches = UInt(item.layerObject?.oid ?? 0) == oid
+            let viewMatches = UInt(item.viewObject?.oid ?? 0) == oid
+
+            if isLayerProperty,
+               let layer = item.layerObject,
+               layerMatches {
+                let className = layer.rawClassName() ?? "CALayer"
+                let metadata = TargetMetadata(
+                    nodeOid: oid,
+                    objectOid: UInt(layer.oid),
+                    className: className,
+                    classChain: layer.classChainList ?? [className]
+                )
+                return (metadata, currentFrameToRoot)
+            }
+
+            if let view = item.viewObject, viewMatches || (!isLayerProperty && layerMatches) {
+                let className = view.rawClassName() ?? "UIView"
+                let metadata = TargetMetadata(
+                    nodeOid: oid,
+                    objectOid: UInt(view.oid),
+                    className: className,
+                    classChain: view.classChainList ?? [className]
+                )
+                return (metadata, currentFrameToRoot)
+            }
+
+            if let found = findCoordinateTapTarget(
+                oid: oid,
+                isLayerProperty: isLayerProperty,
+                in: item.subitems ?? [],
+                parentFrameToRoot: currentFrameToRoot,
+                parentBounds: item.bounds
+            ) {
+                return found
+            }
+        }
+        return nil
     }
 
     private func findTarget(

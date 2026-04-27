@@ -59,6 +59,41 @@ final class LiveMutationServicePreflightTests: XCTestCase {
         XCTAssertEqual(target.classChain, ["UIAlertController", "UIViewController", "UIResponder", "NSObject"])
     }
 
+    func testResolveCoordinateTapTargetCalculatesScreenPointFromAncestorFrames() throws {
+        let service = LiveMutationService(sessionService: LiveSessionService(store: SessionStore(directory: tempDir())))
+        let rootObject = LookinObject()
+        rootObject.oid = 1
+        rootObject.classChainList = ["UIWindow", "UIView", "NSObject"]
+        let root = LookinDisplayItem()
+        root.viewObject = rootObject
+        root.frame = CGRect(x: 0, y: 0, width: 390, height: 844)
+        root.bounds = CGRect(x: 0, y: 20, width: 390, height: 844)
+
+        let childObject = LookinObject()
+        childObject.oid = 42
+        childObject.classChainList = ["UIView", "UIResponder", "NSObject"]
+        let child = LookinDisplayItem()
+        child.viewObject = childObject
+        child.frame = CGRect(x: 30, y: 80, width: 120, height: 40)
+        child.bounds = CGRect(x: 0, y: 0, width: 120, height: 40)
+        root.subitems = [child]
+
+        let appInfo = LookinAppInfo()
+        appInfo.screenWidth = 390
+        appInfo.screenHeight = 844
+        let hierarchy = LookinHierarchyInfo()
+        hierarchy.appInfo = appInfo
+        hierarchy.displayItems = [root]
+
+        let target = try service.resolveCoordinateTapTarget(nodeOid: 42, isLayerProperty: false, hierarchy: hierarchy)
+
+        XCTAssertEqual(target.metadata.objectOid, 42)
+        XCTAssertEqual(target.frameToRoot.origin.x, 30)
+        XCTAssertEqual(target.frameToRoot.origin.y, 60)
+        XCTAssertEqual(target.point.x, 90)
+        XCTAssertEqual(target.point.y, 80)
+    }
+
     func testEnsureClassChainAcceptsSubclassMatch() throws {
         let service = LiveMutationService(sessionService: LiveSessionService(store: SessionStore(directory: tempDir())))
 
