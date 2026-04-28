@@ -280,6 +280,9 @@ noise = [
     "_UIPointerInteractionAssistantEffectContainerView",
     "ScrollEdgeEffectView",
     "_UIPortalView",
+    "_UITabBarContainerWrapperView",
+    "_UITabBarContainerView",
+    "_UIMultiLayer",
 ]
 matches = []
 

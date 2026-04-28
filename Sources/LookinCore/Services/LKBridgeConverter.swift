@@ -238,7 +238,12 @@ public enum LKBridgeConverter {
     private static func systemNoisePolicy(for item: LookinDisplayItem) -> SystemNoisePolicy? {
         let className = item.viewObject?.rawClassName() ?? item.layerObject?.rawClassName() ?? ""
         switch className {
-        case "_UITouchPassthroughView":
+        case "_UITouchPassthroughView",
+             "_UIMultiLayer",
+             "_UITabBarContainerWrapperView",
+             "UIKit._UITabBarContainerWrapperView",
+             "_UITabBarContainerView",
+             "UIKit._UITabBarContainerView":
             return .elideNode
         case "_UIFloatingBarContainerView",
              "_UIPointerInteractionAssistantEffectContainerView",

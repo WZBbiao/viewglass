@@ -10,6 +10,14 @@ final class LKBridgeConverterNoiseFilteringTests: XCTestCase {
         let promotedButton = makeItem(oid: 4, className: "UIButton")
         passthrough.subitems = [scrollEdgeEffect, promotedButton]
 
+        let multiLayer = makeItem(oid: 8, className: "_UIMultiLayer")
+        multiLayer.subitems = [makeItem(oid: 9, className: "UILabel")]
+
+        let tabBarWrapper = makeItem(oid: 10, className: "UIKit._UITabBarContainerWrapperView")
+        let tabBarContainer = makeItem(oid: 11, className: "UIKit._UITabBarContainerView")
+        tabBarContainer.subitems = [makeItem(oid: 12, className: "UITabBar")]
+        tabBarWrapper.subitems = [tabBarContainer]
+
         let floatingBar = makeItem(oid: 5, className: "_UIFloatingBarContainerView")
         floatingBar.subitems = [
             makeItem(
@@ -19,7 +27,7 @@ final class LKBridgeConverterNoiseFilteringTests: XCTestCase {
             makeItem(oid: 7, className: "_UIPointerInteractionAssistantEffectContainerView"),
         ]
 
-        root.subitems = [passthrough, floatingBar]
+        root.subitems = [passthrough, multiLayer, tabBarWrapper, floatingBar]
         let hierarchy = LookinHierarchyInfo()
         hierarchy.displayItems = [root]
 
@@ -28,8 +36,8 @@ final class LKBridgeConverterNoiseFilteringTests: XCTestCase {
             app: LKAppDescriptor(appName: "Demo", bundleIdentifier: "com.demo", port: 47164)
         )
 
-        XCTAssertEqual(snapshot.flatNodes.map(\.oid), [1, 4])
-        XCTAssertEqual(snapshot.windows.first?.node.childrenOids, [4])
+        XCTAssertEqual(snapshot.flatNodes.map(\.oid), [1, 4, 9, 12])
+        XCTAssertEqual(snapshot.windows.first?.node.childrenOids, [4, 9, 12])
         XCTAssertEqual(snapshot.windows.first?.children.first?.node.parentOid, 1)
         XCTAssertEqual(snapshot.windows.first?.children.first?.node.depth, 1)
     }
