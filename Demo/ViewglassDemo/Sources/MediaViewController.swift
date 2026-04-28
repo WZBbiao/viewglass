@@ -2,8 +2,9 @@ import AVFoundation
 import UIKit
 import WebKit
 
-final class MediaViewController: UIViewController {
+final class MediaViewController: UIViewController, WKScriptMessageHandler {
     private let playerView = PlayerSurfaceView()
+    private let webInputStatusLabel = UILabel()
     private var player: AVPlayer?
     private var playerEndObserver: NSObjectProtocol?
 
@@ -32,13 +33,22 @@ final class MediaViewController: UIViewController {
         playerView.heightAnchor.constraint(equalToConstant: 190).isActive = true
         stack.addArrangedSubview(playerView)
 
-        let webView = WKWebView(frame: .zero)
+        let webConfiguration = WKWebViewConfiguration()
+        webConfiguration.userContentController.add(WeakScriptMessageHandler(target: self), name: "viewglassDemo")
+        let webView = WKWebView(frame: .zero, configuration: webConfiguration)
         webView.accessibilityIdentifier = DemoID.mediaWebView
         webView.layer.cornerRadius = 20
         webView.layer.masksToBounds = true
-        webView.heightAnchor.constraint(equalToConstant: 230).isActive = true
+        webView.heightAnchor.constraint(equalToConstant: 280).isActive = true
         webView.loadHTMLString(Self.webHTML, baseURL: nil)
         stack.addArrangedSubview(webView)
+
+        webInputStatusLabel.accessibilityIdentifier = DemoID.mediaWebInputStatus
+        webInputStatusLabel.text = "Web editor: empty"
+        webInputStatusLabel.textColor = DemoTheme.ink
+        webInputStatusLabel.font = UIFont.systemFont(ofSize: 16, weight: .semibold)
+        webInputStatusLabel.numberOfLines = 0
+        stack.addArrangedSubview(webInputStatusLabel.embedInRoundedSurface())
 
         let field = UITextField()
         field.accessibilityIdentifier = DemoID.mediaKeyboardField
@@ -103,17 +113,38 @@ final class MediaViewController: UIViewController {
         }
     }
 
+    func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+        guard message.name == "viewglassDemo" else {
+            return
+        }
+        let text = (message.body as? String) ?? ""
+        webInputStatusLabel.text = text.isEmpty ? "Web editor: empty" : "Web editor: \(text.count) chars"
+    }
+
     private static let webHTML = """
     <!doctype html>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
       body { margin: 0; font: 700 22px -apple-system; background: #07111f; color: white; }
-      .hero { min-height: 220px; display: grid; place-items: center; background:
+      .hero { min-height: 132px; display: grid; place-items: center; background:
         radial-gradient(circle at 20% 20%, #34d399, transparent 30%),
         linear-gradient(135deg, #2563eb, #f97316); }
       .pill { padding: 18px 22px; border-radius: 999px; background: rgba(255,255,255,.22); }
+      .editor { min-height: 98px; margin: 14px; padding: 16px; border-radius: 18px;
+        outline: 2px solid rgba(255,255,255,.32); background: rgba(255,255,255,.12);
+        font: 600 18px -apple-system; line-height: 1.35; }
+      .editor:empty:before { content: attr(data-placeholder); color: rgba(255,255,255,.6); }
     </style>
     <div class="hero"><div class="pill">WKWebView Rendered Content</div></div>
+    <div id="editor" class="editor" contenteditable="true" role="textbox" data-placeholder="Write into this WK editor"></div>
+    <script>
+      const editor = document.getElementById('editor');
+      function notify() {
+        window.webkit?.messageHandlers?.viewglassDemo?.postMessage(editor.innerText || editor.textContent || '');
+      }
+      editor.addEventListener('input', notify);
+      editor.addEventListener('change', notify);
+    </script>
     """
 
     private static func makeDemoVideoURL() -> URL? {
@@ -215,5 +246,18 @@ private final class PlayerSurfaceView: UIView {
 
     var playerLayer: AVPlayerLayer {
         layer as! AVPlayerLayer
+    }
+}
+
+private final class WeakScriptMessageHandler: NSObject, WKScriptMessageHandler {
+    weak var target: WKScriptMessageHandler?
+
+    init(target: WKScriptMessageHandler) {
+        self.target = target
+        super.init()
+    }
+
+    func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+        target?.userContentController(userContentController, didReceive: message)
     }
 }

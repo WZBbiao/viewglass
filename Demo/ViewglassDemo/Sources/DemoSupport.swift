@@ -45,6 +45,7 @@ enum DemoID {
     static let collectionTileLabelPrefix = "collection_tile_label_"
     static let mediaPlayer = "media_player"
     static let mediaWebView = "media_web_view"
+    static let mediaWebInputStatus = "media_web_input_status"
     static let mediaKeyboardField = "media_keyboard_field"
 }
 

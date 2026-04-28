@@ -382,6 +382,31 @@ assert_full_screen_screenshot() {
   fi
 }
 
+assert_server_fallback_screenshot() {
+  local output_path="$1"
+  local screenshot_json provider fallback_reason warnings_count
+  screenshot_json="$(run_viewglass screenshot screen --session "$SESSION_SPEC" --udid "invalid-host-provider-for-e2e" -o "$output_path" --json)"
+  provider="$(json_query "$screenshot_json" 'data.get("captureProvider", "")')"
+  fallback_reason="$(json_query "$screenshot_json" 'data.get("fallbackReason", "")')"
+  warnings_count="$(json_query "$screenshot_json" 'len(data.get("qualityWarnings", []))')"
+  if [[ "$provider" != "server" ]]; then
+    echo "Expected forced host failure to fall back to server provider, got '$provider'" >&2
+    echo "$screenshot_json" >&2
+    exit 1
+  fi
+  if [[ -z "$fallback_reason" ]]; then
+    echo "Expected server fallback screenshot to include fallbackReason" >&2
+    echo "$screenshot_json" >&2
+    exit 1
+  fi
+  if [[ "$warnings_count" -ne 0 ]]; then
+    echo "Expected server fallback screenshot to avoid quality warnings" >&2
+    echo "$screenshot_json" >&2
+    exit 1
+  fi
+  assert_screenshot_has_visible_content "$output_path"
+}
+
 tap_locator() {
   local locator="$1"
   run_viewglass tap "$locator" --session "$SESSION_SPEC" --json >/dev/null
@@ -503,6 +528,7 @@ main() {
   sleep 1
   assert_hierarchy_system_noise_absent
   assert_full_screen_screenshot "$ARTIFACT_DIR/buttons-page.png"
+  assert_server_fallback_screenshot "$ARTIFACT_DIR/buttons-page-server-fallback.png"
   tap_locator "#show_empty_overlay_window"
   sleep 0.2
   assert_full_screen_screenshot "$ARTIFACT_DIR/buttons-empty-overlay.png" true
@@ -595,6 +621,10 @@ main() {
   tap_locator "#push_media_screen"
   assert_locator_exists "#media_player"
   assert_locator_exists "#media_web_view"
+  assert_locator_exists "#media_web_input_status"
+  local web_input_text="Viewglass web editor input ok."
+  input_locator "#media_web_view" "$web_input_text"
+  assert_status_contains "#media_web_input_status" "Web editor: ${#web_input_text} chars"
   assert_full_screen_screenshot "$ARTIFACT_DIR/media-webkit-player.png"
   tap_locator "#media_keyboard_field"
   sleep 1

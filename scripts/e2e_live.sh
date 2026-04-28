@@ -739,6 +739,24 @@ if [[ "$(node_count "$(vg query "#media_web_view" $S --json)")" -ge 1 ]]; then
 else
   fail "media: #media_web_view not found"
 fi
+if [[ "$(node_count "$(vg query "#media_web_input_status" $S --json)")" -ge 1 ]]; then
+  pass "media: #media_web_input_status found"
+else
+  fail "media: #media_web_input_status not found"
+fi
+
+WEB_INPUT_TEXT="Viewglass web editor input ok."
+if vg input "#media_web_view" --text "$WEB_INPUT_TEXT" $S --json >/dev/null; then
+  STATUS_JSON="$(vg attr get "#media_web_input_status" $S --json)"
+  STATUS_TEXT="$(attr_val "$STATUS_JSON" "text")"
+  if [[ "$STATUS_TEXT" == *"Web editor: ${#WEB_INPUT_TEXT} chars"* ]]; then
+    pass "media: WKWebView editor input accepted"
+  else
+    fail "media: WKWebView editor status mismatch: '$STATUS_TEXT'"
+  fi
+else
+  fail "media: WKWebView editor input failed"
+fi
 
 MEDIA_JSON="$(vg screenshot screen $S -o "$ARTIFACT_DIR/media-webkit-player.png" --json)"
 assert_screen_screenshot_metadata "$MEDIA_JSON" "$ARTIFACT_DIR/media-webkit-player.png"
