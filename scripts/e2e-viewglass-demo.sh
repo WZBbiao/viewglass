@@ -264,6 +264,41 @@ assert_query_count_at_least() {
   fi
 }
 
+assert_hierarchy_system_noise_absent() {
+  local hierarchy_json
+  hierarchy_json="$(run_viewglass hierarchy --session "$SESSION_SPEC" --json)"
+  JSON_INPUT="$hierarchy_json" python3 <<'PY'
+import json
+import os
+
+data = json.loads(os.environ["JSON_INPUT"])
+noise = [
+    "_UITouchPassthroughView",
+    "_UIFloatingBarContainerView",
+    "FloatingBarHostingView",
+    "FloatingBarContainer",
+    "_UIPointerInteractionAssistantEffectContainerView",
+    "ScrollEdgeEffectView",
+    "_UIPortalView",
+]
+matches = []
+
+def walk(tree):
+    node = tree.get("node", {})
+    class_name = node.get("className", "")
+    if any(term in class_name for term in noise):
+        matches.append(f'{node.get("oid")}:{class_name}')
+    for child in tree.get("children", []):
+        walk(child)
+
+for window in data.get("windows", []):
+    walk(window)
+
+if matches:
+    raise SystemExit("Expected UIKit system noise to be filtered, found: " + ", ".join(matches[:20]))
+PY
+}
+
 assert_screenshot_has_visible_content() {
   local image_path="$1"
   local bmp_path="${image_path}.bmp"
@@ -437,8 +472,10 @@ main() {
   install_demo
 
   launch_demo
+  assert_hierarchy_system_noise_absent
   tap_locator "#push_buttons_screen"
   sleep 1
+  assert_hierarchy_system_noise_absent
   assert_full_screen_screenshot "$ARTIFACT_DIR/buttons-page.png"
   tap_locator "#show_empty_overlay_window"
   sleep 0.2
@@ -547,6 +584,7 @@ main() {
   launch_demo
   tap_locator "#push_feed_screen"
   sleep 1
+  assert_hierarchy_system_noise_absent
   run_viewglass screenshot screen --session "$SESSION_SPEC" -o "$ARTIFACT_DIR/feed-before-scroll.png" --json >/dev/null
   scroll_feed_and_verify
   run_viewglass screenshot screen --session "$SESSION_SPEC" -o "$ARTIFACT_DIR/feed-after-scroll.png" --json >/dev/null

@@ -27,9 +27,7 @@ public enum LKBridgeConverter {
     }
 
     public static func convertHierarchy(_ info: LookinHierarchyInfo, app: LKAppDescriptor) -> LKHierarchySnapshot {
-        let windows = (info.displayItems ?? []).map { item in
-            convertDisplayItemTree(item, depth: 0, parentOid: nil)
-        }
+        let windows = convertDisplayItemTrees(info.displayItems ?? [], depth: 0, parentOid: nil)
 
         let screenSize = LKRect(
             x: 0, y: 0,
@@ -52,17 +50,22 @@ public enum LKBridgeConverter {
         depth: Int,
         parentOid: UInt?
     ) -> LKNodeTree {
-        let node = convertDisplayItem(item, depth: depth, parentOid: parentOid)
-        let children = (item.subitems ?? []).map { child in
-            convertDisplayItemTree(child, depth: depth + 1, parentOid: node.primaryOid)
-        }
+        let primaryOid = item.viewObject?.oid ?? item.layerObject?.oid ?? 0
+        let children = convertDisplayItemTrees(item.subitems ?? [], depth: depth + 1, parentOid: UInt(primaryOid))
+        let node = convertDisplayItem(
+            item,
+            depth: depth,
+            parentOid: parentOid,
+            childrenOids: children.map(\.node.oid)
+        )
         return LKNodeTree(node: node, children: children)
     }
 
     public static func convertDisplayItem(
         _ item: LookinDisplayItem,
         depth: Int,
-        parentOid: UInt?
+        parentOid: UInt?,
+        childrenOids: [UInt]? = nil
     ) -> LKNode {
         let viewOid = item.viewObject?.oid
         let layerOid = item.layerObject?.oid
@@ -91,8 +94,9 @@ public enum LKBridgeConverter {
             height: Double(item.bounds.size.height)
         )
 
-        let childrenOids = (item.subitems ?? []).compactMap { child -> UInt? in
-            child.viewObject?.oid ?? child.layerObject?.oid
+        let resolvedChildrenOids = childrenOids ?? (item.subitems ?? []).compactMap { child -> UInt? in
+            guard let oid = child.viewObject?.oid ?? child.layerObject?.oid else { return nil }
+            return UInt(oid)
         }
 
         let attrGroups = item.attributesGroupList?.map { convertAttributesGroup($0) }
@@ -126,7 +130,7 @@ public enum LKBridgeConverter {
             customDisplayTitle: item.customDisplayTitle,
             depth: depth,
             parentOid: parentOid,
-            childrenOids: childrenOids.map { UInt($0) },
+            childrenOids: resolvedChildrenOids,
             attributeGroups: attrGroups
         )
     }
@@ -203,6 +207,52 @@ public enum LKBridgeConverter {
                     }
                 }
             }
+        }
+        return nil
+    }
+
+    // MARK: - System hierarchy noise filtering
+
+    private enum SystemNoisePolicy {
+        case elideNode
+        case dropSubtree
+    }
+
+    private static func convertDisplayItemTrees(
+        _ items: [LookinDisplayItem],
+        depth: Int,
+        parentOid: UInt?
+    ) -> [LKNodeTree] {
+        items.flatMap { item -> [LKNodeTree] in
+            switch systemNoisePolicy(for: item) {
+            case .elideNode:
+                return convertDisplayItemTrees(item.subitems ?? [], depth: depth, parentOid: parentOid)
+            case .dropSubtree:
+                return []
+            case .none:
+                return [convertDisplayItemTree(item, depth: depth, parentOid: parentOid)]
+            }
+        }
+    }
+
+    private static func systemNoisePolicy(for item: LookinDisplayItem) -> SystemNoisePolicy? {
+        let className = item.viewObject?.rawClassName() ?? item.layerObject?.rawClassName() ?? ""
+        switch className {
+        case "_UITouchPassthroughView":
+            return .elideNode
+        case "_UIFloatingBarContainerView",
+             "_UIPointerInteractionAssistantEffectContainerView",
+             "_UIPortalView":
+            return .dropSubtree
+        default:
+            break
+        }
+
+        if className.contains("FloatingBarHostingView") && className.contains("FloatingBarContainer") {
+            return .dropSubtree
+        }
+        if className.contains("ScrollEdgeEffectView") {
+            return .dropSubtree
         }
         return nil
     }
