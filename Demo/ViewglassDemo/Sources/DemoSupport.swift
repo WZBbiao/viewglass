@@ -13,6 +13,7 @@ enum DemoID {
     static let pushFeed = "push_feed_screen"
     static let pushGestures = "push_gestures_screen"
     static let pushSelectableSurfaces = "push_selectable_surfaces_screen"
+    static let pushMedia = "push_media_screen"
     static let showHomeSheet = "show_home_sheet"
     static let openAlert = "open_alert"
     static let openActionSheet = "open_action_sheet"
@@ -42,6 +43,9 @@ enum DemoID {
     static let selectableCollection = "selectable_collection"
     static let tableRowLabelPrefix = "table_row_label_"
     static let collectionTileLabelPrefix = "collection_tile_label_"
+    static let mediaPlayer = "media_player"
+    static let mediaWebView = "media_web_view"
+    static let mediaKeyboardField = "media_keyboard_field"
 }
 
 enum DemoTheme {

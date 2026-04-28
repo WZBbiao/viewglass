@@ -83,12 +83,63 @@ node_count() {
   printf '%s' "$1" | python3 -c "import json,sys; print(len(json.loads(sys.stdin.read())))"
 }
 
+assert_screen_screenshot_metadata() {
+  local json="$1" output_path="$2" allow_mostly_black="${3:-false}"
+  if [[ ! -s "$output_path" ]]; then
+    fail "screenshot screen: output file missing or empty ($output_path)"
+    return
+  fi
+  if SCREENSHOT_JSON="$json" python3 - "$IS_REAL_DEVICE" "$allow_mostly_black" <<'PY'
+import json
+import os
+import sys
+
+data = json.loads(os.environ["SCREENSHOT_JSON"])
+is_real = sys.argv[1] == "true"
+allow_mostly_black = sys.argv[2] == "true"
+provider = data.get("captureProvider")
+warnings = data.get("qualityWarnings") or []
+width = int(data.get("width") or 0)
+height = int(data.get("height") or 0)
+
+if not data.get("filePath"):
+    raise SystemExit("missing filePath")
+if width < 300 or height < 300:
+    raise SystemExit(f"screenshot too small: {width}x{height}")
+
+if is_real:
+    if provider not in {"pymobiledevice3", "idevicescreenshot", "server"}:
+        raise SystemExit(f"unexpected real-device screenshot provider: {provider}")
+    if provider == "server" and not data.get("fallbackReason"):
+        raise SystemExit("server fallback must include fallbackReason on real device")
+else:
+    if provider != "simctl":
+        raise SystemExit(f"expected simulator provider simctl, got {provider}")
+
+if allow_mostly_black:
+    if "mostlyBlack" not in warnings:
+        raise SystemExit("expected mostlyBlack warning")
+else:
+    if warnings:
+        raise SystemExit(f"unexpected qualityWarnings: {warnings}")
+    visible_ratio = data.get("nonBlackPixelRatio")
+    if visible_ratio is not None and float(visible_ratio) < 0.03:
+        raise SystemExit(f"visible content ratio too low: {visible_ratio}")
+PY
+  then
+    local provider
+    provider="$(printf '%s' "$json" | python3 -c "import json,sys; print(json.load(sys.stdin).get('captureProvider',''))")"
+    pass "screenshot screen: provider=$provider metadata OK"
+  else
+    fail "screenshot screen: provider/quality metadata invalid"
+  fi
+}
+
 # ── session detection ──────────────────────────────────────────────────────────
-APPS_JSON=""
+APPS_JSON="$("$BIN" apps list --json 2>/dev/null || true)"
 if [[ -n "$SESSION_OVERRIDE" ]]; then
   SESSION="$SESSION_OVERRIDE"
 else
-  APPS_JSON="$("$BIN" apps list --json 2>/dev/null || true)"
   if [[ -n "$APPS_JSON" ]]; then
     SESSION="$(printf '%s' "$APPS_JSON" | python3 -c "
 import json, sys
@@ -444,6 +495,7 @@ sys.exit(0 if d.get('filePath') else 1)
 else
   fail "screenshot screen: failed or missing filePath in JSON"
 fi
+assert_screen_screenshot_metadata "$SCREEN_JSON" "$ARTIFACT_DIR/buttons-screen.png"
 
 NODE_SCREEN_JSON="$(vg screenshot node "#open_alert" $S -o "$ARTIFACT_DIR/open-alert-btn.png" --json 2>/dev/null || true)"
 if [[ -n "$NODE_SCREEN_JSON" ]] && printf '%s' "$NODE_SCREEN_JSON" | python3 -c "
@@ -460,9 +512,13 @@ section "11 - dismiss (alert, action sheet, page sheet, full screen)"
 
 # Alert
 vg tap "#open_alert" $S --json >/dev/null
-sleep 0.6
+if "$BIN" wait appears "controller:UIAlertController" --timeout 5 --interval-ms 300 $S >/dev/null 2>&1; then
+  sleep 0.2
+else
+  fail "UIAlertController did not appear after open_alert"
+fi
 vg refresh $S --json >/dev/null
-ALERT_JSON="$(vg query UIAlertController $S --json)"
+ALERT_JSON="$(vg query "controller:UIAlertController" $S --json)"
 if [[ "$(node_count "$ALERT_JSON")" -eq 1 ]]; then
   pass "UIAlertController present after open_alert"
   ALERT_OID="$(printf '%s' "$ALERT_JSON" | python3 -c "
@@ -473,7 +529,7 @@ print(d[0].get('hostViewControllerOid', ''))
   if vg dismiss "$ALERT_OID" $S --json >/dev/null 2>&1; then
     sleep 0.5
     vg refresh $S --json >/dev/null
-    if [[ "$(node_count "$(vg query UIAlertController $S --json)")" -eq 0 ]]; then
+    if [[ "$(node_count "$(vg query "controller:UIAlertController" $S --json)")" -eq 0 ]]; then
       pass "dismiss alert: gone after dismiss"
     else
       fail "dismiss alert: still present after dismiss"
@@ -487,9 +543,13 @@ fi
 
 # Action sheet
 vg tap "#open_action_sheet" $S --json >/dev/null
-sleep 0.6
+if "$BIN" wait appears "controller:UIAlertController" --timeout 5 --interval-ms 300 $S >/dev/null 2>&1; then
+  sleep 0.2
+else
+  fail "UIAlertController did not appear after open_action_sheet"
+fi
 vg refresh $S --json >/dev/null
-SHEET_JSON="$(vg query UIAlertController $S --json)"
+SHEET_JSON="$(vg query "controller:UIAlertController" $S --json)"
 if [[ "$(node_count "$SHEET_JSON")" -eq 1 ]]; then
   pass "UIAlertController (action sheet) present"
   SHEET_OID="$(printf '%s' "$SHEET_JSON" | python3 -c "
@@ -500,7 +560,7 @@ print(d[0].get('hostViewControllerOid', ''))
   vg dismiss "$SHEET_OID" $S --json >/dev/null 2>&1 || true
   sleep 0.5
   vg refresh $S --json >/dev/null
-  if [[ "$(node_count "$(vg query UIAlertController $S --json)")" -eq 0 ]]; then
+  if [[ "$(node_count "$(vg query "controller:UIAlertController" $S --json)")" -eq 0 ]]; then
     pass "dismiss action sheet: gone"
   else
     fail "dismiss action sheet: still present"
@@ -511,7 +571,11 @@ fi
 
 # Page sheet (ModalCardViewController)
 vg tap "#open_page_sheet" $S --json >/dev/null
-sleep 0.6
+if "$BIN" wait appears "controller:ModalCardViewController" --timeout 5 --interval-ms 300 $S >/dev/null 2>&1; then
+  sleep 0.2
+else
+  fail "ModalCardViewController did not appear after open_page_sheet"
+fi
 vg refresh $S --json >/dev/null
 PAGE_JSON="$(vg query "controller:ModalCardViewController" $S --json)"
 if [[ "$(node_count "$PAGE_JSON")" -ge 1 ]]; then
@@ -530,7 +594,11 @@ fi
 
 # Full screen
 vg tap "#open_full_screen" $S --json >/dev/null
-sleep 0.6
+if "$BIN" wait appears "controller:ModalCardViewController" --timeout 5 --interval-ms 300 $S >/dev/null 2>&1; then
+  sleep 0.2
+else
+  fail "ModalCardViewController did not appear after open_full_screen"
+fi
 vg refresh $S --json >/dev/null
 FS_JSON="$(vg query "controller:ModalCardViewController" $S --json)"
 if [[ "$(node_count "$FS_JSON")" -ge 1 ]]; then
@@ -654,6 +722,32 @@ if [[ "$AXIS_VAL" == "vertical" ]]; then
 else
   fail "UIStackView axis: expected 'vertical', got: '$AXIS_VAL'"
 fi
+
+# ── Media: host screenshot providers should capture surfaces in the final image ──
+section "15 - screenshot providers: AVPlayer, WKWebView, keyboard"
+vg tap "#push_media_screen" $S --json >/dev/null
+sleep 0.8
+vg refresh $S --json >/dev/null
+
+if [[ "$(node_count "$(vg query "#media_player" $S --json)")" -ge 1 ]]; then
+  pass "media: #media_player found"
+else
+  fail "media: #media_player not found"
+fi
+if [[ "$(node_count "$(vg query "#media_web_view" $S --json)")" -ge 1 ]]; then
+  pass "media: #media_web_view found"
+else
+  fail "media: #media_web_view not found"
+fi
+
+MEDIA_JSON="$(vg screenshot screen $S -o "$ARTIFACT_DIR/media-webkit-player.png" --json)"
+assert_screen_screenshot_metadata "$MEDIA_JSON" "$ARTIFACT_DIR/media-webkit-player.png"
+
+vg tap "#media_keyboard_field" $S --json >/dev/null
+sleep 1.0
+vg refresh $S --json >/dev/null
+KEYBOARD_JSON="$(vg screenshot screen $S -o "$ARTIFACT_DIR/media-keyboard.png" --json)"
+assert_screen_screenshot_metadata "$KEYBOARD_JSON" "$ARTIFACT_DIR/media-keyboard.png"
 
 # ── summary ────────────────────────────────────────────────────────────────────
 echo

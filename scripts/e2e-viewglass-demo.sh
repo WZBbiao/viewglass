@@ -347,16 +347,39 @@ PY
 
 assert_full_screen_screenshot() {
   local output_path="$1"
-  local screenshot_json width height
+  local allow_mostly_black="${2:-false}"
+  local screenshot_json width height provider warnings_count
   screenshot_json="$(run_viewglass screenshot screen --session "$SESSION_SPEC" -o "$output_path" --json)"
   width="$(json_query "$screenshot_json" 'data["width"]')"
   height="$(json_query "$screenshot_json" 'data["height"]')"
+  provider="$(json_query "$screenshot_json" 'data.get("captureProvider", "")')"
+  warnings_count="$(json_query "$screenshot_json" 'len(data.get("qualityWarnings", []))')"
   if [[ "$width" -lt 1000 || "$height" -lt 2000 ]]; then
     echo "Expected full-screen screenshot to be at least 1000x2000 px, got ${width}x${height}" >&2
     echo "$screenshot_json" >&2
     exit 1
   fi
-  assert_screenshot_has_visible_content "$output_path"
+  if [[ "$provider" != "simctl" ]]; then
+    echo "Expected simulator full-screen screenshot provider to be simctl, got '$provider'" >&2
+    echo "$screenshot_json" >&2
+    exit 1
+  fi
+  if [[ "$allow_mostly_black" == "true" ]]; then
+    local has_mostly_black
+    has_mostly_black="$(json_query "$screenshot_json" '"mostlyBlack" in data.get("qualityWarnings", [])')"
+    if [[ "$has_mostly_black" != "True" ]]; then
+      echo "Expected mostlyBlack quality warning for intentionally empty overlay screenshot" >&2
+      echo "$screenshot_json" >&2
+      exit 1
+    fi
+  else
+    if [[ "$warnings_count" -ne 0 ]]; then
+      echo "Expected simulator full-screen screenshot to have no quality warnings" >&2
+      echo "$screenshot_json" >&2
+      exit 1
+    fi
+    assert_screenshot_has_visible_content "$output_path"
+  fi
 }
 
 tap_locator() {
@@ -482,7 +505,7 @@ main() {
   assert_full_screen_screenshot "$ARTIFACT_DIR/buttons-page.png"
   tap_locator "#show_empty_overlay_window"
   sleep 0.2
-  assert_full_screen_screenshot "$ARTIFACT_DIR/buttons-empty-overlay.png"
+  assert_full_screen_screenshot "$ARTIFACT_DIR/buttons-empty-overlay.png" true
   tap_locator "#open_alert"
   sleep 1
   run_viewglass screenshot screen --session "$SESSION_SPEC" -o "$ARTIFACT_DIR/alert.png" --json >/dev/null
@@ -567,6 +590,15 @@ main() {
   tap_locator "#push_selectable_surfaces_screen"
   assert_query_count_at_least "tableview" 1
   assert_query_count_at_least "collectionview" 1
+
+  launch_demo
+  tap_locator "#push_media_screen"
+  assert_locator_exists "#media_player"
+  assert_locator_exists "#media_web_view"
+  assert_full_screen_screenshot "$ARTIFACT_DIR/media-webkit-player.png"
+  tap_locator "#media_keyboard_field"
+  sleep 1
+  assert_full_screen_screenshot "$ARTIFACT_DIR/media-keyboard.png"
 
   launch_demo
   tap_locator "#switch_tab_forms"
