@@ -137,6 +137,32 @@ final class LKTargetResolverTests: XCTestCase {
         XCTAssertEqual(resolved.selectedTarget?.capabilities["input"]?.supported, true)
     }
 
+    func testWKContentViewExposesDedicatedInputTarget() throws {
+        let node = LKNode(
+            oid: 250,
+            primaryOid: 251,
+            oidType: .view,
+            viewOid: 251,
+            className: "WKContentView"
+        )
+        let snapshot = LKHierarchySnapshot(
+            appInfo: LKAppDescriptor(
+                appName: "Demo",
+                bundleIdentifier: "com.example.demo",
+                appVersion: "1.0",
+                deviceName: "iPhone",
+                deviceType: .simulator,
+                port: 47164
+            ),
+            windows: [LKNodeTree(node: node)]
+        )
+
+        let resolved = try resolver.resolve(locator: .parse("oid:251"), in: snapshot)
+
+        XCTAssertEqual(resolved.selectedTarget?.targets.textInputOid, 251)
+        XCTAssertEqual(resolved.selectedTarget?.capabilities["input"]?.supported, true)
+    }
+
     func testAlertActionViewIsNotReportedAsDismissableController() throws {
         let node = LKNode(
             oid: 300,

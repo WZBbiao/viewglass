@@ -4,7 +4,7 @@ import LookinCore
 struct InputCommand: AsyncParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "input",
-        abstract: "Enter semantic text into a UITextField or UITextView target"
+        abstract: "Enter semantic text into a UITextField, UITextView, or WKWebView editor target"
     )
 
     @Argument(help: "Target locator, OID, or resolved-target JSON")

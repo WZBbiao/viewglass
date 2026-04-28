@@ -122,7 +122,8 @@ public final class LiveScreenshotService: ScreenshotServiceProtocol, @unchecked 
                 at: outputURL.deletingLastPathComponent(),
                 withIntermediateDirectories: true
             )
-            _ = try runProcess(
+            try? FileManager.default.removeItem(at: outputURL)
+            let result = try runProcess(
                 executable: "/usr/bin/xcrun",
                 arguments: ["simctl", "io", udid, "screenshot", "--type=png", "--mask=ignored", outputURL.path],
                 timeout: 15
@@ -132,7 +133,8 @@ public final class LiveScreenshotService: ScreenshotServiceProtocol, @unchecked 
                 fallbackNodeOid: 0,
                 screenshotType: .screen,
                 captureProvider: .simctl,
-                fallbackReason: nil
+                fallbackReason: nil,
+                providerOutput: result.diagnosticOutput
             )
 
         case .device:
@@ -151,9 +153,10 @@ public final class LiveScreenshotService: ScreenshotServiceProtocol, @unchecked 
             at: outputURL.deletingLastPathComponent(),
             withIntermediateDirectories: true
         )
+        try? FileManager.default.removeItem(at: outputURL)
 
         do {
-            _ = try runProcess(
+            let result = try runProcess(
                 executable: "/usr/bin/env",
                 arguments: ["pymobiledevice3", "developer", "screenshot", "--udid", udid, outputURL.path],
                 timeout: 20
@@ -163,7 +166,8 @@ public final class LiveScreenshotService: ScreenshotServiceProtocol, @unchecked 
                 fallbackNodeOid: 0,
                 screenshotType: .screen,
                 captureProvider: .pymobiledevice3,
-                fallbackReason: nil
+                fallbackReason: nil,
+                providerOutput: result.diagnosticOutput
             )
         } catch {
             failures.append("pymobiledevice3: \(error.localizedDescription)")
@@ -174,7 +178,7 @@ public final class LiveScreenshotService: ScreenshotServiceProtocol, @unchecked 
             .appendingPathComponent(".\(outputURL.lastPathComponent).idevicescreenshot.tiff")
         try? FileManager.default.removeItem(at: tiffURL)
         do {
-            _ = try runProcess(
+            let result = try runProcess(
                 executable: "/usr/bin/env",
                 arguments: ["idevicescreenshot", "-u", udid, tiffURL.path],
                 timeout: 20
@@ -188,7 +192,8 @@ public final class LiveScreenshotService: ScreenshotServiceProtocol, @unchecked 
                 fallbackNodeOid: 0,
                 screenshotType: .screen,
                 captureProvider: .idevicescreenshot,
-                fallbackReason: nil
+                fallbackReason: nil,
+                providerOutput: result.diagnosticOutput
             )
         } catch {
             failures.append("idevicescreenshot: \(error.localizedDescription)")
@@ -227,14 +232,16 @@ public final class LiveScreenshotService: ScreenshotServiceProtocol, @unchecked 
         fallbackNodeOid: UInt,
         screenshotType: LKScreenshotRef.ScreenshotType,
         captureProvider: LKScreenshotRef.CaptureProvider,
-        fallbackReason: String?
+        fallbackReason: String?,
+        providerOutput: String? = nil
     ) throws -> LKScreenshotRef {
         guard
             let attributes = try? FileManager.default.attributesOfItem(atPath: outputURL.path),
             let fileSize = attributes[.size] as? NSNumber,
             fileSize.intValue > 0
         else {
-            throw LookinCoreError.screenshotFailed(reason: "Host provider \(captureProvider.rawValue) did not produce a screenshot file at \(outputURL.path)")
+            let outputDetail = providerOutput?.isEmpty == false ? " Output: \(providerOutput!)" : ""
+            throw LookinCoreError.screenshotFailed(reason: "Host provider \(captureProvider.rawValue) did not produce a screenshot file at \(outputURL.path).\(outputDetail)")
         }
         let data = try Data(contentsOf: outputURL)
         return try makeScreenshotRef(
@@ -304,6 +311,10 @@ public final class LiveScreenshotService: ScreenshotServiceProtocol, @unchecked 
         let stdout: String
         let stderr: String
         let exitCode: Int32
+
+        var diagnosticOutput: String {
+            [stderr, stdout].filter { !$0.isEmpty }.joined(separator: " ")
+        }
     }
 
     private struct ProcessFailure: LocalizedError {

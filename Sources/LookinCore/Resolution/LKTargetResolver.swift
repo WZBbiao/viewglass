@@ -91,7 +91,7 @@ public final class LKTargetResolver: Sendable {
                 : LKCapability(supported: false, reason: "target is not a UIViewController subclass"),
             "input": isTextInput
                 ? LKCapability(supported: true)
-                : LKCapability(supported: false, reason: "target is not a UITextField or UITextView"),
+                : LKCapability(supported: false, reason: "target is not a UITextField, UITextView, or WKWebView editor"),
             "invoke": LKCapability(supported: true)
         ]
     }
@@ -111,10 +111,14 @@ public final class LKTargetResolver: Sendable {
 
     private func isTextInputLike(_ node: LKNode) -> Bool {
         classNames(for: node).contains { className in
-            className == "UITextField" ||
+                className == "UITextField" ||
                 className == "UITextView" ||
+                className == "WKWebView" ||
+                className == "WKContentView" ||
                 className.localizedCaseInsensitiveContains("TextField") ||
-                className.localizedCaseInsensitiveContains("TextView")
+                className.localizedCaseInsensitiveContains("TextView") ||
+                className.localizedCaseInsensitiveContains("WKWebView") ||
+                className.localizedCaseInsensitiveContains("WKContentView")
         }
     }
 

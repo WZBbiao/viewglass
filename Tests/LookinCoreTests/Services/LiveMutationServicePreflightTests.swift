@@ -120,6 +120,19 @@ final class LiveMutationServicePreflightTests: XCTestCase {
         )
     }
 
+    func testEnsureClassChainAcceptsWKContentViewInputTarget() throws {
+        let service = LiveMutationService(sessionService: LiveSessionService(store: SessionStore(directory: tempDir())))
+
+        XCTAssertNoThrow(
+            try service.ensureClassChain(
+                ["WKContentView", "WKApplicationStateTrackingView", "UIView"],
+                containsAny: ["UITextField", "UITextView", "WKWebView", "WKContentView"],
+                action: "input",
+                targetClass: "WKContentView"
+            )
+        )
+    }
+
     func testEnsureClassChainRejectsUnexpectedTargetClass() throws {
         let service = LiveMutationService(sessionService: LiveSessionService(store: SessionStore(directory: tempDir())))
 

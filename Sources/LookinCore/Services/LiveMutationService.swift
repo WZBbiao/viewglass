@@ -481,14 +481,14 @@ public final class LiveMutationService: MutationServiceProtocol, @unchecked Send
                 do {
                     try ensureClassChain(
                         target.classChain,
-                        containsAny: ["UITextField", "UITextView"],
+                        containsAny: ["UITextField", "UITextView", "WKWebView", "WKContentView"],
                         action: "input",
                         targetClass: target.className
                     )
                 } catch {
                     throw LookinCoreError.actionFailed(
                         action: "input",
-                        reason: "\(target.className) is not a supported text input target. Use UITextField or UITextView."
+                        reason: "\(target.className) is not a supported text input target. Use UITextField, UITextView, or a WKWebView editor."
                     )
                 }
 
