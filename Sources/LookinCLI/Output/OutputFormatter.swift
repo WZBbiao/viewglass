@@ -185,6 +185,15 @@ public enum OutputFormatter {
             print("  Type:   \(ref.screenshotType.rawValue)")
             print("  Size:   \(ref.width)x\(ref.height)")
             print("  Format: \(ref.format.rawValue)")
+            if let provider = ref.captureProvider {
+                print("  Provider: \(provider.rawValue)")
+            }
+            if !ref.qualityWarnings.isEmpty {
+                print("  Warnings: \(ref.qualityWarnings.joined(separator: ", "))")
+            }
+            if let fallbackReason = ref.fallbackReason, !fallbackReason.isEmpty {
+                print("  Fallback: \(fallbackReason)")
+            }
         }
     }
 

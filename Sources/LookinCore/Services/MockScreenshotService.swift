@@ -14,7 +14,8 @@ public final class MockScreenshotService: ScreenshotServiceProtocol, @unchecked 
             width: 1170,
             height: 2532,
             dataSize: 1024,
-            filePath: outputPath
+            filePath: outputPath,
+            captureProvider: .server
         )
     }
 
@@ -27,7 +28,8 @@ public final class MockScreenshotService: ScreenshotServiceProtocol, @unchecked 
             width: 300,
             height: 200,
             dataSize: 512,
-            filePath: outputPath
+            filePath: outputPath,
+            captureProvider: .server
         )
     }
 }
