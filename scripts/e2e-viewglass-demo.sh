@@ -158,6 +158,7 @@ install_demo() {
 prepare_simulator() {
   xcrun simctl shutdown 8DE39716-E197-466F-9FE5-5938A7726C3B >/dev/null 2>&1 || true
   xcrun simctl shutdown E487EE87-BA68-4A03-955A-A93507361E82 >/dev/null 2>&1 || true
+  xcrun simctl boot "$SIMULATOR_UDID" >/dev/null 2>&1 || true
   xcrun simctl bootstatus "$SIMULATOR_UDID" -b >/dev/null
 }
 
@@ -341,6 +342,77 @@ for y in range(0, abs_height, step):
 ratio = non_black / sampled if sampled else 0
 if ratio < 0.03:
     raise SystemExit(f"Screenshot is mostly black/empty: non-black sample ratio {ratio:.4f}")
+PY
+  rm -f "$bmp_path"
+}
+
+assert_screenshot_region_has_visible_content() {
+  local image_path="$1"
+  local nodes_json="$2"
+  local min_ratio="${3:-0.12}"
+  local bmp_path="${image_path}.region.bmp"
+  /usr/bin/sips -s format bmp "$image_path" --out "$bmp_path" >/dev/null
+  NODES_JSON="$nodes_json" python3 - "$bmp_path" "$min_ratio" <<'PY'
+import json
+import os
+import struct
+import sys
+
+path = sys.argv[1]
+min_ratio = float(sys.argv[2])
+nodes = json.loads(os.environ["NODES_JSON"])
+if not nodes:
+    raise SystemExit("No node frame available for screenshot region assertion")
+frame = nodes[0].get("frame") or {}
+fx = float(frame.get("x", 0))
+fy = float(frame.get("y", 0))
+fw = float(frame.get("width", 0))
+fh = float(frame.get("height", 0))
+if fw <= 0 or fh <= 0:
+    raise SystemExit(f"Invalid node frame: {frame}")
+
+data = open(path, "rb").read()
+if data[:2] != b"BM":
+    raise SystemExit(f"Expected BMP data from {path}")
+offset = struct.unpack_from("<I", data, 10)[0]
+width = struct.unpack_from("<i", data, 18)[0]
+height = struct.unpack_from("<i", data, 22)[0]
+bpp = struct.unpack_from("<H", data, 28)[0]
+if width <= 0 or height == 0 or bpp not in (24, 32):
+    raise SystemExit(f"Unsupported BMP shape: {width}x{height} bpp={bpp}")
+
+abs_height = abs(height)
+bytes_per_pixel = bpp // 8
+row_size = ((width * bpp + 31) // 32) * 4
+
+screen_points_width = fx * 2 + fw
+scale = width / screen_points_width if screen_points_width > 0 else 1
+x0 = max(0, int((fx + fw * 0.15) * scale))
+x1 = min(width, int((fx + fw * 0.85) * scale))
+y0 = max(0, int((fy + fh * 0.15) * scale))
+y1 = min(abs_height, int((fy + fh * 0.85) * scale))
+if x1 <= x0 or y1 <= y0:
+    raise SystemExit(f"Computed empty crop for frame={frame}, image={width}x{abs_height}, scale={scale:.3f}")
+
+step = max(1, min(x1 - x0, y1 - y0) // 60)
+sampled = 0
+non_black = 0
+for y in range(y0, y1, step):
+    row_y = abs_height - 1 - y if height > 0 else y
+    row = offset + row_y * row_size
+    for x in range(x0, x1, step):
+        pixel = row + x * bytes_per_pixel
+        b, g, r = data[pixel], data[pixel + 1], data[pixel + 2]
+        sampled += 1
+        if max(r, g, b) > 35 and (r + g + b) > 90:
+            non_black += 1
+
+ratio = non_black / sampled if sampled else 0
+if ratio < min_ratio:
+    raise SystemExit(
+        f"Screenshot region is too black: ratio {ratio:.4f}, expected >= {min_ratio:.4f}, "
+        f"crop=({x0},{y0})-({x1},{y1}), frame={frame}, image={width}x{abs_height}"
+    )
 PY
   rm -f "$bmp_path"
 }
@@ -625,7 +697,13 @@ main() {
   local web_input_text="Viewglass web editor input ok."
   input_locator "#media_web_view" "$web_input_text"
   assert_status_contains "#media_web_input_status" "Web editor: ${#web_input_text} chars"
+  media_player_nodes="$(run_viewglass query "#media_player" --session "$SESSION_SPEC" --json)"
   assert_full_screen_screenshot "$ARTIFACT_DIR/media-webkit-player.png"
+  assert_screenshot_region_has_visible_content "$ARTIFACT_DIR/media-webkit-player.png" "$media_player_nodes" 0.12
+  run_viewglass screenshot screen --session "$SESSION_SPEC" --udid "invalid-host-provider-for-e2e" -o "$ARTIFACT_DIR/media-webkit-player-server.png" --json >/dev/null
+  assert_screenshot_region_has_visible_content "$ARTIFACT_DIR/media-webkit-player-server.png" "$media_player_nodes" 0.12
+  run_viewglass screenshot node "#media_player" --session "$SESSION_SPEC" -o "$ARTIFACT_DIR/media-player-node.png" --json >/dev/null
+  assert_screenshot_has_visible_content "$ARTIFACT_DIR/media-player-node.png"
   tap_locator "#media_keyboard_field"
   sleep 1
   assert_full_screen_screenshot "$ARTIFACT_DIR/media-keyboard.png"

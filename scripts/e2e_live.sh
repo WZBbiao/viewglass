@@ -135,6 +135,128 @@ PY
   fi
 }
 
+assert_screenshot_region_visible() {
+  local image_path="$1" nodes_json="$2" label="$3" min_ratio="${4:-0.12}"
+  local bmp_path="${image_path}.region.bmp"
+  if ! /usr/bin/sips -s format bmp "$image_path" --out "$bmp_path" >/dev/null; then
+    fail "$label: failed to convert screenshot for region assertion"
+    return
+  fi
+  if NODES_JSON="$nodes_json" python3 - "$bmp_path" "$min_ratio" <<'PY'
+import json
+import os
+import struct
+import sys
+
+path = sys.argv[1]
+min_ratio = float(sys.argv[2])
+nodes = json.loads(os.environ["NODES_JSON"])
+if not nodes:
+    raise SystemExit("no node frame")
+frame = nodes[0].get("frame") or {}
+fx = float(frame.get("x", 0))
+fy = float(frame.get("y", 0))
+fw = float(frame.get("width", 0))
+fh = float(frame.get("height", 0))
+if fw <= 0 or fh <= 0:
+    raise SystemExit(f"invalid node frame: {frame}")
+
+data = open(path, "rb").read()
+if data[:2] != b"BM":
+    raise SystemExit("expected BMP")
+offset = struct.unpack_from("<I", data, 10)[0]
+width = struct.unpack_from("<i", data, 18)[0]
+height = struct.unpack_from("<i", data, 22)[0]
+bpp = struct.unpack_from("<H", data, 28)[0]
+if width <= 0 or height == 0 or bpp not in (24, 32):
+    raise SystemExit(f"unsupported BMP: {width}x{height} bpp={bpp}")
+
+abs_height = abs(height)
+bytes_per_pixel = bpp // 8
+row_size = ((width * bpp + 31) // 32) * 4
+screen_points_width = fx * 2 + fw
+scale = width / screen_points_width if screen_points_width > 0 else 1
+x0 = max(0, int((fx + fw * 0.15) * scale))
+x1 = min(width, int((fx + fw * 0.85) * scale))
+y0 = max(0, int((fy + fh * 0.15) * scale))
+y1 = min(abs_height, int((fy + fh * 0.85) * scale))
+if x1 <= x0 or y1 <= y0:
+    raise SystemExit(f"empty crop for frame={frame}, image={width}x{abs_height}, scale={scale:.3f}")
+
+step = max(1, min(x1 - x0, y1 - y0) // 60)
+sampled = 0
+non_black = 0
+for y in range(y0, y1, step):
+    row_y = abs_height - 1 - y if height > 0 else y
+    row = offset + row_y * row_size
+    for x in range(x0, x1, step):
+        pixel = row + x * bytes_per_pixel
+        b, g, r = data[pixel], data[pixel + 1], data[pixel + 2]
+        sampled += 1
+        if max(r, g, b) > 35 and (r + g + b) > 90:
+            non_black += 1
+ratio = non_black / sampled if sampled else 0
+if ratio < min_ratio:
+    raise SystemExit(f"region too black: ratio={ratio:.4f}, crop=({x0},{y0})-({x1},{y1}), frame={frame}")
+PY
+  then
+    pass "$label: screenshot region visible"
+  else
+    fail "$label: screenshot region is black"
+  fi
+  rm -f "$bmp_path"
+}
+
+assert_screenshot_image_visible() {
+  local image_path="$1" label="$2" min_ratio="${3:-0.03}"
+  local bmp_path="${image_path}.bmp"
+  if ! /usr/bin/sips -s format bmp "$image_path" --out "$bmp_path" >/dev/null; then
+    fail "$label: failed to convert screenshot"
+    return
+  fi
+  if python3 - "$bmp_path" "$min_ratio" <<'PY'
+import struct
+import sys
+
+path = sys.argv[1]
+min_ratio = float(sys.argv[2])
+data = open(path, "rb").read()
+if data[:2] != b"BM":
+    raise SystemExit("expected BMP")
+offset = struct.unpack_from("<I", data, 10)[0]
+width = struct.unpack_from("<i", data, 18)[0]
+height = struct.unpack_from("<i", data, 22)[0]
+bpp = struct.unpack_from("<H", data, 28)[0]
+if width <= 0 or height == 0 or bpp not in (24, 32):
+    raise SystemExit(f"unsupported BMP: {width}x{height} bpp={bpp}")
+
+abs_height = abs(height)
+bytes_per_pixel = bpp // 8
+row_size = ((width * bpp + 31) // 32) * 4
+step = max(1, min(width, abs_height) // 80)
+sampled = 0
+non_black = 0
+for y in range(0, abs_height, step):
+    row_y = abs_height - 1 - y if height > 0 else y
+    row = offset + row_y * row_size
+    for x in range(0, width, step):
+        pixel = row + x * bytes_per_pixel
+        b, g, r = data[pixel], data[pixel + 1], data[pixel + 2]
+        sampled += 1
+        if max(r, g, b) > 35 and (r + g + b) > 80:
+            non_black += 1
+ratio = non_black / sampled if sampled else 0
+if ratio < min_ratio:
+    raise SystemExit(f"image too black: ratio={ratio:.4f}")
+PY
+  then
+    pass "$label: screenshot image visible"
+  else
+    fail "$label: screenshot image is black"
+  fi
+  rm -f "$bmp_path"
+}
+
 # ── session detection ──────────────────────────────────────────────────────────
 APPS_JSON="$("$BIN" apps list --json 2>/dev/null || true)"
 if [[ -n "$SESSION_OVERRIDE" ]]; then
@@ -760,6 +882,13 @@ fi
 
 MEDIA_JSON="$(vg screenshot screen $S -o "$ARTIFACT_DIR/media-webkit-player.png" --json)"
 assert_screen_screenshot_metadata "$MEDIA_JSON" "$ARTIFACT_DIR/media-webkit-player.png"
+MEDIA_PLAYER_NODES="$(vg query "#media_player" $S --json)"
+assert_screenshot_region_visible "$ARTIFACT_DIR/media-webkit-player.png" "$MEDIA_PLAYER_NODES" "media: AVPlayer screen crop" 0.12
+if vg screenshot node "#media_player" $S -o "$ARTIFACT_DIR/media-player-node.png" --json >/dev/null; then
+  assert_screenshot_image_visible "$ARTIFACT_DIR/media-player-node.png" "media: AVPlayer node crop" 0.12
+else
+  fail "media: AVPlayer node screenshot failed"
+fi
 
 vg tap "#media_keyboard_field" $S --json >/dev/null
 sleep 1.0
