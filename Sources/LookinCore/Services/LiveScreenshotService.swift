@@ -16,22 +16,32 @@ public final class LiveScreenshotService: ScreenshotServiceProtocol, @unchecked 
         var hostFailures: [String] = []
         if let app = try? await resolveAppDescriptor(sessionId: sessionId) {
             do {
-                return try await captureHostScreen(
+                let hostRef = try await captureHostScreen(
                     app: app,
                     outputPath: outputPath,
                     preferredDeviceIdentifier: preferredDeviceIdentifier
                 )
+                if let reason = hostRef.agentUnusableScreenReason {
+                    hostFailures.append("\(hostRef.captureProvider?.rawValue ?? "host"): \(reason)")
+                } else {
+                    return hostRef
+                }
             } catch {
                 hostFailures.append(error.localizedDescription)
             }
         }
 
         let fallbackReason = hostFailures.isEmpty ? nil : hostFailures.joined(separator: "; ")
-        return try await captureServerScreen(
+        let serverRef = try await captureServerScreen(
             sessionId: sessionId,
             outputPath: outputPath,
             fallbackReason: fallbackReason
         )
+        if let reason = serverRef.agentUnusableScreenReason {
+            let details = ([fallbackReason, "server: \(reason)"].compactMap { $0 }).joined(separator: "; ")
+            throw LookinCoreError.screenshotFailed(reason: "All full-screen screenshot providers produced unusable output. \(details)")
+        }
+        return serverRef
     }
 
     private func captureServerScreen(sessionId: String, outputPath: String, fallbackReason: String?) async throws -> LKScreenshotRef {

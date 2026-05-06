@@ -33,6 +33,32 @@ public struct LKScreenshotRef: Codable, Equatable, Sendable {
         case idevicescreenshot
     }
 
+    public var agentUnusableScreenReason: String? {
+        guard screenshotType == .screen else { return nil }
+
+        if width < 300 || height < 300 {
+            return "suspiciousSmallDimensions \(width)x\(height)"
+        }
+
+        let warningSet = Set(qualityWarnings)
+        if warningSet.contains("mostlyBlack") && warningSet.contains("lowVisibleContentRatio") {
+            let black = blackPixelRatio.map { String($0) } ?? "unknown"
+            let nonBlack = nonBlackPixelRatio.map { String($0) } ?? "unknown"
+            return "mostlyBlack with lowVisibleContentRatio blackPixelRatio=\(black) nonBlackPixelRatio=\(nonBlack)"
+        }
+
+        if let blackPixelRatio, let nonBlackPixelRatio,
+           blackPixelRatio >= 0.90 && nonBlackPixelRatio <= 0.03 {
+            return "mostlyBlack blackPixelRatio=\(blackPixelRatio) nonBlackPixelRatio=\(nonBlackPixelRatio)"
+        }
+
+        return nil
+    }
+
+    public var isAgentUsableScreenCapture: Bool {
+        agentUnusableScreenReason == nil
+    }
+
     public init(
         nodeOid: UInt,
         screenshotType: ScreenshotType,

@@ -420,21 +420,36 @@ PY
 assert_full_screen_screenshot() {
   local output_path="$1"
   local allow_mostly_black="${2:-false}"
-  local screenshot_json width height provider warnings_count
+  local screenshot_json width height provider fallback_reason warnings_count
   screenshot_json="$(run_viewglass screenshot screen --session "$SESSION_SPEC" -o "$output_path" --json)"
   width="$(json_query "$screenshot_json" 'data["width"]')"
   height="$(json_query "$screenshot_json" 'data["height"]')"
   provider="$(json_query "$screenshot_json" 'data.get("captureProvider", "")')"
+  fallback_reason="$(json_query "$screenshot_json" 'data.get("fallbackReason", "")')"
   warnings_count="$(json_query "$screenshot_json" 'len(data.get("qualityWarnings", []))')"
   if [[ "$width" -lt 1000 || "$height" -lt 2000 ]]; then
     echo "Expected full-screen screenshot to be at least 1000x2000 px, got ${width}x${height}" >&2
     echo "$screenshot_json" >&2
     exit 1
   fi
-  if [[ "$provider" != "simctl" ]]; then
-    echo "Expected simulator full-screen screenshot provider to be simctl, got '$provider'" >&2
+  if [[ "$provider" != "simctl" && "$provider" != "server" ]]; then
+    echo "Expected simulator full-screen screenshot provider to be simctl or server fallback, got '$provider'" >&2
     echo "$screenshot_json" >&2
     exit 1
+  fi
+  if [[ "$provider" == "server" && -z "$fallback_reason" ]]; then
+    echo "Expected server fallback screenshot to include fallbackReason" >&2
+    echo "$screenshot_json" >&2
+    exit 1
+  fi
+  if [[ "$provider" == "server" ]]; then
+    if [[ "$warnings_count" -ne 0 ]]; then
+      echo "Expected server fallback screenshot to avoid quality warnings" >&2
+      echo "$screenshot_json" >&2
+      exit 1
+    fi
+    assert_screenshot_has_visible_content "$output_path"
+    return
   fi
   if [[ "$allow_mostly_black" == "true" ]]; then
     local has_mostly_black
