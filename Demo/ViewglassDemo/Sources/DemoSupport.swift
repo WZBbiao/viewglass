@@ -14,6 +14,7 @@ enum DemoID {
     static let pushGestures = "push_gestures_screen"
     static let pushSelectableSurfaces = "push_selectable_surfaces_screen"
     static let pushMedia = "push_media_screen"
+    static let pushComplexScenarios = "push_complex_scenarios_screen"
     static let showHomeSheet = "show_home_sheet"
     static let openAlert = "open_alert"
     static let openActionSheet = "open_action_sheet"
@@ -47,6 +48,17 @@ enum DemoID {
     static let mediaWebView = "media_web_view"
     static let mediaWebInputStatus = "media_web_input_status"
     static let mediaKeyboardField = "media_keyboard_field"
+    static let complexOuterScroll = "complex_outer_scroll"
+    static let nestedHorizontalScroll = "nested_horizontal_scroll"
+    static let nestedInnerScroll = "nested_inner_scroll"
+    static let nestedStatus = "nested_status"
+    static let nestedInnerButtonPrefix = "nested_inner_button_"
+    static let waterfallCollection = "waterfall_collection"
+    static let waterfallStatus = "waterfall_status"
+    static let waterfallItemPrefix = "waterfall_item_"
+    static let pageFeedScroll = "page_feed_scroll"
+    static let pageFeedStatus = "page_feed_status"
+    static let pageFeedCardPrefix = "page_feed_card_"
 }
 
 enum DemoTheme {

@@ -63,11 +63,15 @@ final class HomeViewController: UIViewController {
         media.accessibilityIdentifier = DemoID.pushMedia
         media.addTarget(self, action: #selector(showMedia), for: .touchUpInside)
 
+        let complex = makeDemoButton(title: "Open Complex Scenarios")
+        complex.accessibilityIdentifier = DemoID.pushComplexScenarios
+        complex.addTarget(self, action: #selector(showComplexScenarios), for: .touchUpInside)
+
         let sheet = makeDemoButton(title: "Show Home Sheet", filled: false)
         sheet.accessibilityIdentifier = DemoID.showHomeSheet
         sheet.addTarget(self, action: #selector(showHomeSheet), for: .touchUpInside)
 
-        [buttons, forms, feed, gestures, selectableSurfaces, media, sheet].forEach(actions.addArrangedSubview(_:))
+        [buttons, feed, complex, forms, gestures, selectableSurfaces, media, sheet].forEach(actions.addArrangedSubview(_:))
         intro.addArrangedSubview(actions)
 
         stack.addArrangedSubview(intro)
@@ -112,6 +116,10 @@ final class HomeViewController: UIViewController {
 
     @objc private func showMedia() {
         navigationController?.pushViewController(MediaViewController(), animated: true)
+    }
+
+    @objc private func showComplexScenarios() {
+        navigationController?.pushViewController(ComplexScenariosViewController(), animated: true)
     }
 
     @objc private func showHomeSheet() {

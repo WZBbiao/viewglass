@@ -268,11 +268,15 @@ assert_query_count_at_least() {
 assert_hierarchy_system_noise_absent() {
   local hierarchy_json
   hierarchy_json="$(run_viewglass hierarchy --session "$SESSION_SPEC" --json)"
-  JSON_INPUT="$hierarchy_json" python3 <<'PY'
+  local hierarchy_file
+  hierarchy_file="$(mktemp "$ARTIFACT_DIR/hierarchy.XXXXXX.json")"
+  printf '%s' "$hierarchy_json" > "$hierarchy_file"
+  python3 - "$hierarchy_file" <<'PY'
 import json
-import os
+import sys
 
-data = json.loads(os.environ["JSON_INPUT"])
+with open(sys.argv[1], "r") as file:
+    data = json.load(file)
 noise = [
     "_UITouchPassthroughView",
     "_UIFloatingBarContainerView",
@@ -301,6 +305,7 @@ for window in data.get("windows", []):
 if matches:
     raise SystemExit("Expected UIKit system noise to be filtered, found: " + ", ".join(matches[:20]))
 PY
+  rm -f "$hierarchy_file"
 }
 
 assert_screenshot_has_visible_content() {
@@ -602,6 +607,55 @@ scroll_feed_and_verify() {
   fi
 }
 
+assert_complex_scenarios() {
+  assert_locator_exists "#complex_outer_scroll"
+  assert_locator_exists "#nested_horizontal_scroll"
+  assert_locator_exists "#nested_inner_scroll"
+  assert_locator_exists "#waterfall_collection"
+  assert_locator_exists "#page_feed_scroll"
+
+  run_viewglass screenshot screen --session "$SESSION_SPEC" -o "$ARTIFACT_DIR/complex-before-scroll.png" --json >/dev/null
+
+  run_viewglass scroll "#nested_horizontal_scroll" --to 180,0 --session "$SESSION_SPEC" --json >/dev/null
+  local horizontal_offset
+  horizontal_offset="$(read_content_offset "#nested_horizontal_scroll")"
+  if [[ "$horizontal_offset" != "NSPoint: {180, 0}" ]]; then
+    echo "Expected nested horizontal contentOffset to become {180, 0}, got $horizontal_offset" >&2
+    exit 1
+  fi
+
+  run_viewglass scroll "#nested_inner_scroll" --to 0,420 --session "$SESSION_SPEC" --json >/dev/null
+  local inner_offset
+  inner_offset="$(read_content_offset "#nested_inner_scroll")"
+  if [[ "$inner_offset" != "NSPoint: {0, 420}" ]]; then
+    echo "Expected nested inner contentOffset to become {0, 420}, got $inner_offset" >&2
+    exit 1
+  fi
+  tap_locator "#nested_inner_button_10"
+  assert_status_text "#nested_status" "Nested target: option 10"
+
+  run_viewglass scroll "#waterfall_collection" --to 0,9999 --session "$SESSION_SPEC" --json >/dev/null
+  sleep 1
+  assert_status_text "#waterfall_status" "Waterfall page: 2, items: 30"
+  run_viewglass scroll "#waterfall_collection" --to 0,9999 --session "$SESSION_SPEC" --json >/dev/null
+  assert_locator_exists "#waterfall_item_26"
+  tap_locator "#waterfall_item_26"
+  assert_status_text "#waterfall_status" "Waterfall tapped: item 26"
+
+  run_viewglass scroll "#page_feed_scroll" --to 0,560 --animated --session "$SESSION_SPEC" --json >/dev/null
+  sleep 1
+  local page_offset
+  page_offset="$(read_content_offset "#page_feed_scroll")"
+  if [[ "$page_offset" != "NSPoint: {0, 560}" ]]; then
+    echo "Expected page feed contentOffset to become {0, 560}, got $page_offset" >&2
+    exit 1
+  fi
+  assert_status_text "#page_feed_status" "Page feed: card 2"
+  assert_locator_exists "#page_feed_card_2"
+
+  run_viewglass screenshot screen --session "$SESSION_SPEC" -o "$ARTIFACT_DIR/complex-after-scroll.png" --json >/dev/null
+}
+
 main() {
   prepare_simulator
   ensure_debug_cli
@@ -745,6 +799,12 @@ main() {
   run_viewglass screenshot screen --session "$SESSION_SPEC" -o "$ARTIFACT_DIR/feed-before-scroll.png" --json >/dev/null
   scroll_feed_and_verify
   run_viewglass screenshot screen --session "$SESSION_SPEC" -o "$ARTIFACT_DIR/feed-after-scroll.png" --json >/dev/null
+
+  launch_demo
+  tap_locator "#push_complex_scenarios_screen"
+  sleep 1
+  assert_hierarchy_system_noise_absent
+  assert_complex_scenarios
 
   echo "All ViewglassDemo E2E scenarios passed"
 }
