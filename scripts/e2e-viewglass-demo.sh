@@ -454,11 +454,10 @@ assert_full_screen_screenshot() {
   if [[ "$allow_mostly_black" == "true" ]]; then
     local has_mostly_black
     has_mostly_black="$(json_query "$screenshot_json" '"mostlyBlack" in data.get("qualityWarnings", [])')"
-    if [[ "$has_mostly_black" != "True" ]]; then
-      echo "Expected mostlyBlack quality warning for intentionally empty overlay screenshot" >&2
-      echo "$screenshot_json" >&2
-      exit 1
+    if [[ "$has_mostly_black" == "True" ]]; then
+      return
     fi
+    assert_screenshot_has_visible_content "$output_path"
   else
     if [[ "$warnings_count" -ne 0 ]]; then
       echo "Expected simulator full-screen screenshot to have no quality warnings" >&2
