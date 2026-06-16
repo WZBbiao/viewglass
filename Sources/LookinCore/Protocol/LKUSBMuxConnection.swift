@@ -122,7 +122,7 @@ public final class LKUSBMuxConnection: LKConnectionProtocol, @unchecked Sendable
         }
     }
 
-    private func readExactly(_ count: Int, readTimeoutSeconds: TimeInterval = 5) async throws -> Data {
+    private func readExactly(_ count: Int, readTimeoutSeconds: TimeInterval = 15) async throws -> Data {
         guard io != nil else { throw LookinCoreError.sessionNotConnected }
         return try await withCheckedThrowingContinuation { k in
             let once = LKOnce()

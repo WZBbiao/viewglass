@@ -202,7 +202,7 @@ public final class LKTCPConnection: LKConnectionProtocol, @unchecked Sendable {
     /// delivered the required bytes within that window.  This replaces the old BSD-
     /// socket `SO_RCVTIMEO` behaviour that prevented probes from hanging indefinitely
     /// when a port has no listener or the server stops responding.
-    private func receiveExactly(_ count: Int, readTimeoutSeconds: TimeInterval = 5) async throws -> Data {
+    private func receiveExactly(_ count: Int, readTimeoutSeconds: TimeInterval = 15) async throws -> Data {
         guard count > 0 else { return Data() }
         guard let c = nwConn else { throw LookinCoreError.sessionNotConnected }
         return try await withCheckedThrowingContinuation { k in
