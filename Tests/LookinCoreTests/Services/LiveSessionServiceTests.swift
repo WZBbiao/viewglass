@@ -132,6 +132,20 @@ final class LiveSessionServiceTests: XCTestCase {
         XCTAssertNil(LiveSessionService.parseDirectConnectionTarget("com.wzb.UIView-WZB@abc"))
     }
 
+    func testParseFirstProcessIdentifierFromLsofOutput() {
+        XCTAssertEqual(LiveSessionService.parseFirstProcessIdentifier(fromLsofOutput: "24764\n"), 24764)
+        XCTAssertEqual(LiveSessionService.parseFirstProcessIdentifier(fromLsofOutput: "p24764\nf23\n"), 24764)
+        XCTAssertNil(LiveSessionService.parseFirstProcessIdentifier(fromLsofOutput: ""))
+    }
+
+    func testParseSimulatorUDIDFromProcessEnvironment() {
+        let udid = "756B8217-A28F-4DB0-BFD3-46A55A2E832D"
+        let output = "PID TT STAT COMMAND\n24764 ?? S UIKitApplication SIMULATOR_DEVICE_NAME=iPhone SIMULATOR_UDID=\(udid) OTHER=value\n"
+
+        XCTAssertEqual(LiveSessionService.parseSimulatorUDID(fromProcessEnvironment: output), udid)
+        XCTAssertNil(LiveSessionService.parseSimulatorUDID(fromProcessEnvironment: "SIMULATOR_DEVICE_NAME=iPhone"))
+    }
+
     // Helper to synchronously get currentSession
     private func waitForSession(_ service: LiveSessionService) -> LKSessionDescriptor? {
         let exp = expectation(description: "session")

@@ -107,8 +107,22 @@ public final class LiveSessionService: SessionServiceProtocol, @unchecked Sendab
             try await client.connect(host: host, port: port)
             let appInfo = try await client.fetchAppInfo(needImages: false)
             client.disconnect()
-            let app = LKBridgeConverter.convertAppInfo(appInfo, host: host, port: port, deviceType: .simulator)
-            return LKDiscoveryProbe(host: host, port: port, deviceType: .simulator, status: .discovered, app: app)
+            let deviceIdentifier = simulatorDeviceIdentifierForListeningPort(port)
+            let app = LKBridgeConverter.convertAppInfo(
+                appInfo,
+                host: host,
+                port: port,
+                deviceType: .simulator,
+                deviceIdentifier: deviceIdentifier
+            )
+            return LKDiscoveryProbe(
+                host: host,
+                port: port,
+                deviceType: .simulator,
+                deviceIdentifier: deviceIdentifier,
+                status: .discovered,
+                app: app
+            )
         } catch let error as LookinCoreError {
             client.disconnect()
             return LKDiscoveryProbe(
@@ -478,7 +492,7 @@ public final class LiveSessionService: SessionServiceProtocol, @unchecked Sendab
                     port: target.port,
                     remotePort: nil,
                     deviceType: .simulator,
-                    deviceIdentifier: nil
+                    deviceIdentifier: simulatorDeviceIdentifierForListeningPort(target.port)
                 )
                 client.disconnect()
                 return app
@@ -592,5 +606,86 @@ public final class LiveSessionService: SessionServiceProtocol, @unchecked Sendab
         default:
             return .protocolError
         }
+    }
+
+    static func parseFirstProcessIdentifier(fromLsofOutput output: String) -> Int32? {
+        for line in output.split(whereSeparator: \.isNewline) {
+            let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
+            if let pid = Int32(trimmed) {
+                return pid
+            }
+            if trimmed.first == "p" {
+                let value = trimmed.dropFirst()
+                if let pid = Int32(value) {
+                    return pid
+                }
+            }
+        }
+        return nil
+    }
+
+    static func parseSimulatorUDID(fromProcessEnvironment output: String) -> String? {
+        for token in output.split(whereSeparator: \.isWhitespace) {
+            guard token.hasPrefix("SIMULATOR_UDID=") else { continue }
+            let value = token.dropFirst("SIMULATOR_UDID=".count)
+            return value.isEmpty ? nil : String(value)
+        }
+        return nil
+    }
+
+    private func simulatorDeviceIdentifierForListeningPort(_ port: Int) -> String? {
+        guard
+            let lsof = try? runShortProcess(
+                executable: "/usr/sbin/lsof",
+                arguments: ["-nP", "-iTCP:\(port)", "-sTCP:LISTEN", "-t"],
+                timeout: 2
+            ),
+            let pid = Self.parseFirstProcessIdentifier(fromLsofOutput: lsof.stdout),
+            let ps = try? runShortProcess(
+                executable: "/bin/ps",
+                arguments: ["eww", "-p", "\(pid)"],
+                timeout: 2
+            )
+        else {
+            return nil
+        }
+
+        return Self.parseSimulatorUDID(fromProcessEnvironment: ps.stdout)
+    }
+
+    private struct ProcessResult {
+        let stdout: String
+    }
+
+    private func runShortProcess(
+        executable: String,
+        arguments: [String],
+        timeout: TimeInterval
+    ) throws -> ProcessResult {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: executable)
+        process.arguments = arguments
+
+        let stdoutPipe = Pipe()
+        process.standardOutput = stdoutPipe
+        process.standardError = Pipe()
+
+        let semaphore = DispatchSemaphore(value: 0)
+        process.terminationHandler = { _ in
+            semaphore.signal()
+        }
+
+        try process.run()
+        if semaphore.wait(timeout: .now() + timeout) == .timedOut {
+            process.terminate()
+            _ = semaphore.wait(timeout: .now() + 1)
+            throw LookinCoreError.protocolError(reason: "\(executable) timed out")
+        }
+
+        let stdout = String(data: stdoutPipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
+        guard process.terminationStatus == 0 else {
+            throw LookinCoreError.protocolError(reason: "\(executable) exited \(process.terminationStatus)")
+        }
+        return ProcessResult(stdout: stdout)
     }
 }
