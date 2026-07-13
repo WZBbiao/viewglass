@@ -16,6 +16,8 @@ public struct LKActionResult: Codable, Equatable, Sendable {
     public let fallbackReason: String?
     public let pointX: Double?
     public let pointY: Double?
+    public let endPointX: Double?
+    public let endPointY: Double?
     public let hitOid: UInt?
     public let hitClass: String?
 
@@ -30,6 +32,8 @@ public struct LKActionResult: Codable, Equatable, Sendable {
         fallbackReason: String? = nil,
         pointX: Double? = nil,
         pointY: Double? = nil,
+        endPointX: Double? = nil,
+        endPointY: Double? = nil,
         hitOid: UInt? = nil,
         hitClass: String? = nil
     ) {
@@ -43,6 +47,8 @@ public struct LKActionResult: Codable, Equatable, Sendable {
         self.fallbackReason = fallbackReason
         self.pointX = pointX
         self.pointY = pointY
+        self.endPointX = endPointX
+        self.endPointY = endPointY
         self.hitOid = hitOid
         self.hitClass = hitClass
     }

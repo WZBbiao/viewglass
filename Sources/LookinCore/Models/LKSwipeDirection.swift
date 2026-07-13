@@ -1,6 +1,7 @@
 import Foundation
+import CoreGraphics
 
-/// Direction for a semantic swipe gesture on a UIScrollView.
+/// Direction for a semantic swipe gesture.
 public enum LKSwipeDirection: String, CaseIterable, Codable, Sendable {
     case up
     case down
@@ -14,6 +15,19 @@ public enum LKSwipeDirection: String, CaseIterable, Codable, Sendable {
         case .down:  return "scroll up (contentOffset.y -)"
         case .left:  return "scroll right (contentOffset.x +)"
         case .right: return "scroll left (contentOffset.x -)"
+        }
+    }
+
+    public func endPoint(from startPoint: CGPoint, distance: CGFloat) -> CGPoint {
+        switch self {
+        case .up:
+            return CGPoint(x: startPoint.x, y: startPoint.y - distance)
+        case .down:
+            return CGPoint(x: startPoint.x, y: startPoint.y + distance)
+        case .left:
+            return CGPoint(x: startPoint.x - distance, y: startPoint.y)
+        case .right:
+            return CGPoint(x: startPoint.x + distance, y: startPoint.y)
         }
     }
 }

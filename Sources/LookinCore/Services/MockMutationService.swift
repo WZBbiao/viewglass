@@ -179,7 +179,8 @@ public final class MockMutationService: MutationServiceProtocol, @unchecked Send
             targetClass: "UIScrollView",
             mode: .semantic,
             success: true,
-            detail: "swiped \(direction.rawValue) by \(Int(distance))pt\(animated ? " (animated)" : "")"
+            detail: "swiped \(direction.rawValue) by \(Int(distance))pt\(animated ? " (animated)" : "")",
+            strategyUsed: "semanticScroll"
         )
     }
 }

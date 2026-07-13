@@ -26,6 +26,14 @@ final class SwipeCommandTests: XCTestCase {
         XCTAssertTrue(LKSwipeDirection.right.scrollAxisDescription.contains("contentOffset.x -"))
     }
 
+    func testSwipeDirectionCoordinateEndPoint() {
+        let start = CGPoint(x: 100, y: 200)
+        XCTAssertEqual(LKSwipeDirection.up.endPoint(from: start, distance: 50), CGPoint(x: 100, y: 150))
+        XCTAssertEqual(LKSwipeDirection.down.endPoint(from: start, distance: 50), CGPoint(x: 100, y: 250))
+        XCTAssertEqual(LKSwipeDirection.left.endPoint(from: start, distance: 50), CGPoint(x: 50, y: 200))
+        XCTAssertEqual(LKSwipeDirection.right.endPoint(from: start, distance: 50), CGPoint(x: 150, y: 200))
+    }
+
     func testSwipeDirectionCodable() throws {
         let encoder = JSONEncoder()
         let data = try encoder.encode(LKSwipeDirection.up)

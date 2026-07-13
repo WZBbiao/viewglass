@@ -5,7 +5,7 @@ import LookinCore
 struct SwipeCommand: AsyncParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "swipe",
-        abstract: "Swipe a UIScrollView node in a given direction"
+        abstract: "Swipe a node in a given direction"
     )
 
     @Argument(help: "Target locator, OID, or resolved-target JSON")

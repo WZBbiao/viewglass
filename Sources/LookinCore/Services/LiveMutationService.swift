@@ -17,6 +17,8 @@ public final class LiveMutationService: MutationServiceProtocol, @unchecked Send
         let point: CGPoint
     }
 
+    private static let coordinateSwipeDuration: TimeInterval = 0.35
+
     private let sessionService: LiveSessionService
 
     public init(sessionService: LiveSessionService) {
@@ -159,11 +161,39 @@ public final class LiveMutationService: MutationServiceProtocol, @unchecked Send
 
         let scrollableClasses = ["UIScrollView", "UITableView", "UICollectionView", "UITextView", "WKWebView"]
         guard scrollableClasses.contains(where: { classChainMatches(target.classChain, requiredClass: $0, targetClass: target.className) }) else {
-            throw LookinCoreError.actionFailed(
+            let coordinateTarget = try resolveCoordinateTapTarget(
+                nodeOid: target.nodeOid,
+                isLayerProperty: false,
+                hierarchy: hierarchy,
+                action: "swipe"
+            )
+            let startPoint = coordinateTarget.point
+            let endPoint = direction.endPoint(from: startPoint, distance: distance)
+            let response = try await client.triggerCoordinateSemanticSwipe(
+                startX: Double(startPoint.x),
+                startY: Double(startPoint.y),
+                endX: Double(endPoint.x),
+                endY: Double(endPoint.y),
+                duration: Self.coordinateSwipeDuration,
+                sourceOid: target.objectOid
+            )
+            let detail = response.detail ??
+                "Coordinate semantic swipe \(direction.rawValue) from \(formatPoint(startPoint)) to \(formatPoint(endPoint))"
+            return LKActionResult(
                 action: "swipe",
-                reason: "\(target.className)(oid:\(nodeOid)) is not a UIScrollView subclass. " +
-                    "Swipe is only supported on UIScrollView and its subclasses. " +
-                    "Use 'gesture' to inspect gesture recognizers on non-scrollable views."
+                nodeOid: nodeOid,
+                targetClass: response.hitClass ?? target.className,
+                mode: .semantic,
+                success: true,
+                detail: detail,
+                strategyUsed: response.strategy ?? "coordinateSemanticSwipe",
+                fallbackReason: "\(target.className)(oid:\(nodeOid)) is not a UIScrollView subclass",
+                pointX: Double(startPoint.x),
+                pointY: Double(startPoint.y),
+                endPointX: Double(endPoint.x),
+                endPointY: Double(endPoint.y),
+                hitOid: response.hitOid,
+                hitClass: response.hitClass
             )
         }
 
@@ -556,7 +586,8 @@ public final class LiveMutationService: MutationServiceProtocol, @unchecked Send
     func resolveCoordinateTapTarget(
         nodeOid: UInt,
         isLayerProperty: Bool,
-        hierarchy: LookinHierarchyInfo
+        hierarchy: LookinHierarchyInfo,
+        action: String = "tap"
     ) throws -> CoordinateTapTarget {
         guard let items = hierarchy.displayItems,
               let target = findCoordinateTapTarget(oid: nodeOid, isLayerProperty: isLayerProperty, in: items) else {
@@ -565,7 +596,7 @@ public final class LiveMutationService: MutationServiceProtocol, @unchecked Send
 
         guard target.frameToRoot.width > 0, target.frameToRoot.height > 0 else {
             throw LookinCoreError.actionFailed(
-                action: "tap",
+                action: action,
                 reason: "\(target.metadata.className)(oid:\(nodeOid)) has an invalid frame for coordinate fallback"
             )
         }
@@ -582,7 +613,7 @@ public final class LiveMutationService: MutationServiceProtocol, @unchecked Send
 
         guard !tappableFrame.isNull, !tappableFrame.isEmpty, tappableFrame.width > 0, tappableFrame.height > 0 else {
             throw LookinCoreError.actionFailed(
-                action: "tap",
+                action: action,
                 reason: "\(target.metadata.className)(oid:\(nodeOid)) is outside the visible screen for coordinate fallback"
             )
         }

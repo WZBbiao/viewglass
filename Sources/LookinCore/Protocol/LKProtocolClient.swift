@@ -308,6 +308,58 @@ public final class LKProtocolClient: @unchecked Sendable {
         )
     }
 
+    public func triggerCoordinateSemanticSwipe(
+        startX: Double,
+        startY: Double,
+        endX: Double,
+        endY: Double,
+        duration: Double,
+        sourceOid: UInt?
+    ) async throws -> LKCoordinateSemanticSwipeResponse {
+        let requestData = NSMutableDictionary()
+        requestData["startX"] = NSNumber(value: startX)
+        requestData["startY"] = NSNumber(value: startY)
+        requestData["endX"] = NSNumber(value: endX)
+        requestData["endY"] = NSNumber(value: endY)
+        requestData["duration"] = NSNumber(value: duration)
+        if let sourceOid {
+            requestData["sourceOid"] = NSNumber(value: sourceOid)
+        }
+
+        let response = try await sendRequest(type: LookinRequestTypeCoordinateSemanticSwipe, data: requestData)
+        guard let dict = response.data as? NSDictionary else {
+            if let detail = response.data as? NSString {
+                return LKCoordinateSemanticSwipeResponse(
+                    detail: detail as String,
+                    strategy: "coordinateSemanticSwipe",
+                    startX: startX,
+                    startY: startY,
+                    endX: endX,
+                    endY: endY
+                )
+            }
+            return LKCoordinateSemanticSwipeResponse(
+                strategy: "coordinateSemanticSwipe",
+                startX: startX,
+                startY: startY,
+                endX: endX,
+                endY: endY
+            )
+        }
+
+        let hitOid = (dict["hitOid"] as? NSNumber).map { UInt($0.uintValue) }
+        return LKCoordinateSemanticSwipeResponse(
+            detail: dict["detail"] as? String,
+            strategy: dict["strategy"] as? String,
+            startX: (dict["startX"] as? NSNumber)?.doubleValue,
+            startY: (dict["startY"] as? NSNumber)?.doubleValue,
+            endX: (dict["endX"] as? NSNumber)?.doubleValue,
+            endY: (dict["endY"] as? NSNumber)?.doubleValue,
+            hitOid: hitOid,
+            hitClass: dict["hitClass"] as? String
+        )
+    }
+
     public func triggerSemanticLongPress(oid: UInt) async throws -> String? {
         let requestData: NSDictionary = [
             "oid": NSNumber(value: oid)

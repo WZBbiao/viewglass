@@ -39,6 +39,7 @@ static const uint32_t LookinRequestTypeSemanticTextInput = 219;
 /// the TCP response until after the animation finishes (~300 ms).
 static const uint32_t LookinRequestTypeSemanticScrollAnimated = 220;
 static const uint32_t LookinRequestTypeCoordinateSemanticTap = 221;
+static const uint32_t LookinRequestTypeCoordinateSemanticSwipe = 222;
 
 // Push types
 static const uint32_t LookinPush_BringForwardScreenshotTask = 303;
